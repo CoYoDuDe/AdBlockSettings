@@ -47,7 +47,7 @@ def update_dnsmasq_config(main_config_path="/etc/dnsmasq.conf", adlist_config_pa
         elif adlist_config_path in line:
             adblock_configured = True
             if not adblock_enabled:
-                continue  # Überspringe das Hinzufügen dieser Zeile, wenn AdBlock deaktiviert ist
+                continue  # Ãœberspringe das HinzufÃ¼gen dieser Zeile, wenn AdBlock deaktiviert ist
         updated_lines.append(line)
 
     if adblock_enabled and not adblock_configured:

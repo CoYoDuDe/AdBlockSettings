@@ -1,0 +1,34 @@
+#!/bin/bash
+# Final adjusted setup script for AdBlockSettings
+
+# Load CommonResources
+source /data/SetupHelper/CommonResources  # Assuming this is the correct path without the .sh extension
+
+# Initialisiere D-Bus Einstellungen mit Standardwerten
+updateDbusIntSetting "/Settings/AdBlock/Enabled" 0
+updateDbusStringSetting "/Settings/AdBlock/AdListURL" "https://example.com/adlist.txt"
+updateDbusStringSetting "/Settings/AdBlock/UpdateInterval" "2" # Täglich =1 Wöchentlich =2 Monatlich =0
+updateDbusStringSetting "/Settings/AdBlock/UpdateTime" "00:00"
+updateDbusIntSetting "/Settings/AdBlock/UpdateDay" 1  # Montag als Standard für wöchentliches Update
+updateDbusStringSetting "/Settings/AdBlock/DefaultGateway" "192.168.1.1"
+updateDbusStringSetting "/Settings/AdBlock/IPRangeStart" "192.168.1.100"
+updateDbusStringSetting "/Settings/AdBlock/IPRangeEnd" "192.168.1.200"
+updateDbusIntSetting "/Settings/AdBlock/DHCPEnabled" 0
+updateDbusIntSetting "/Settings/AdBlock/IPv6Enabled" 0
+
+# Apply the patch to integrate AdBlockSettings into PageSettings.qml
+patch /opt/victronenergy/gui/qml/PageSettings.qml < /data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch
+
+# Stop the GUI to apply changes
+svc -d /service/gui
+
+# Remove existing QML files to ensure updates are applied
+rm -f /opt/victronenergy/gui/qml/PageSettingsAdBlock.qml
+
+# Copy new QML files
+cp /data/AdBlockSettings/FileSets/VersionIndependent/*.qml /opt/victronenergy/gui/qml/
+
+# Start the GUI after making changes
+svc -u /service/gui
+
+# End of setup script

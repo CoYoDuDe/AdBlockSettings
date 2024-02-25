@@ -1,0 +1,10 @@
+/Settings/AdBlock/Enabled,0,0,1
+/Settings/AdBlock/AdListURL,"https://example.com/adlist.txt",,,
+/Settings/AdBlock/UpdateInterval,"daily","daily","weekly","monthly"
+/Settings/AdBlock/UpdateTime,"00:00","00:00","23:59",,
+/Settings/AdBlock/UpdateDay,1,1,7  # 1 = Montag, 7 = Sonntag, nur für wöchentliches Update relevant
+/Settings/AdBlock/DefaultGateway,"192.168.1.1",,,
+/Settings/AdBlock/IPRangeStart,"192.168.1.100",,,
+/Settings/AdBlock/IPRangeEnd,"192.168.1.200",,,
+/Settings/AdBlock/DHCPEnabled,0,0,1
+/Settings/AdBlock/IPv6Enabled,0,0,1

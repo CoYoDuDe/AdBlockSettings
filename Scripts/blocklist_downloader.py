@@ -38,7 +38,7 @@ def download_and_configure_ad_list():
             with open(file_path, "w") as f:
                 f.write('\n'.join(dnsmasq_lines))
 
-            # Speichern des MD5-Werts der rohen Ad-Liste für zukünftige Vergleiche
+            # Speichern des MD5-Werts der rohen Ad-Liste fÃ¼r zukÃ¼nftige Vergleiche
             set_dbus_setting("com.victronenergy.settings", "/Settings/AdBlock/RawAdListMD5", raw_content_md5)
 
             print("Ad-List successfully downloaded, converted, and updated.")

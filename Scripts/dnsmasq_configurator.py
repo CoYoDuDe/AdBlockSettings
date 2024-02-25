@@ -4,9 +4,8 @@ import os
 def get_dbus_setting(service, path):
     bus = dbus.SystemBus()
     settings_service = bus.get_object(service, '/')
-    settings_interface = dbus.Interface(settings_service, dbus_interface='com.victronenergy.Settings')
-    value = settings_interface.GetValue(path)
-    return bool(value)
+    settings_interface = dbus.Interface(settings_service, dbus_interface='org.freedesktop.DBus.Properties')
+    return settings_interface.Get('com.victronenergy.settings', path)
 
 def backup_and_clear_dnsmasq_config(main_config_path="/etc/dnsmasq.conf"):
     backup_config_path = f"{main_config_path}.orig"
@@ -47,7 +46,7 @@ def update_dnsmasq_config(main_config_path="/etc/dnsmasq.conf", adlist_config_pa
         elif adlist_config_path in line:
             adblock_configured = True
             if not adblock_enabled:
-                continue  # Überspringe das Hinzufügen dieser Zeile, wenn AdBlock deaktiviert ist
+                continue  # Ãœberspringe das HinzufÃ¼gen dieser Zeile, wenn AdBlock deaktiviert ist
         updated_lines.append(line)
 
     if adblock_enabled and not adblock_configured:

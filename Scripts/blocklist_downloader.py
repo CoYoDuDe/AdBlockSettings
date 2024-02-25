@@ -6,14 +6,14 @@ import os
 def get_dbus_setting(service, path):
     bus = dbus.SystemBus()
     settings_service = bus.get_object(service, '/')
-    settings_interface = dbus.Interface(settings_service, dbus_interface='com.victronenergy.Settings')
-    return settings_interface.GetValue(path)
+    settings_interface = dbus.Interface(settings_service, dbus_interface='org.freedesktop.DBus.Properties')
+    return settings_interface.Get('com.victronenergy.settings', path)
 
 def set_dbus_setting(service, path, value):
     bus = dbus.SystemBus()
     settings_service = bus.get_object(service, '/')
-    settings_interface = dbus.Interface(settings_service, dbus_interface='com.victronenergy.Settings')
-    settings_interface.SetValue(path, value)
+    settings_interface = dbus.Interface(settings_service, dbus_interface='org.freedesktop.DBus.Properties')
+    settings_interface.Set('com.victronenergy.settings', path, value)
 
 def calculate_md5(content):
     hash_md5 = hashlib.md5()
@@ -38,7 +38,7 @@ def download_and_configure_ad_list():
             with open(file_path, "w") as f:
                 f.write('\n'.join(dnsmasq_lines))
 
-            # Speichern des MD5-Werts der rohen Ad-Liste für zukünftige Vergleiche
+            # Speichern des MD5-Werts der rohen Ad-Liste fÃ¼r zukÃ¼nftige Vergleiche
             set_dbus_setting("com.victronenergy.settings", "/Settings/AdBlock/RawAdListMD5", raw_content_md5)
 
             print("Ad-List successfully downloaded, converted, and updated.")

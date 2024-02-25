@@ -64,16 +64,29 @@ MbPage {
             item.bind: getSettingsBind("/AdListURL")
         }
 
+        MbOK {
+            id: downloadHostsButton
+            description: ""
+            value: qsTr ("Download Hosts")
+			onClicked: gitHubDownload ()
+        }
+
         MbItemOptions {
             id: updateIntervalOption
             description: qsTr("BlockListUpdateInterval")
             bind: Utils.path(settingsPrefix, "/UpdateInterval")
             possibleValues: [
-                MbOption { description: qsTr("Täglich"); value: 1 },
-                MbOption { description: qsTr("Wöchentlich"); value: 2 },
+                MbOption { description: qsTr("TÃ¤glich"); value: 1 },
+                MbOption { description: qsTr("WÃ¶chentlich"); value: 2 },
                 MbOption { description: qsTr("Monatlich"); value: 0 }
             ]
-            writeAccessLevel: User.AccessInstaller
+        }
+
+        MbOK {
+            id: uebernehmenButton
+            description: ""
+            value: qsTr ("Ãœbernehmen")
+			onClicked: gitHubDownload ()
         }
     }
 }

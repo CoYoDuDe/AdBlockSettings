@@ -2,32 +2,89 @@
 # Final adjusted setup script for AdBlockSettings
 
 # Load CommonResources
-source /data/SetupHelper/CommonResources  # Assuming this is the correct path without the .sh extension
+source /data/SetupHelper/CommonResources
 
-# Initialisiere D-Bus Einstellungen mit Standardwerten
-updateDbusIntSetting "/Settings/AdBlock/Enabled" 0
-updateDbusStringSetting "/Settings/AdBlock/AdListURL" "https://example.com/adlist.txt"
-updateDbusStringSetting "/Settings/AdBlock/UpdateInterval" "weekly"
-updateDbusStringSetting "/Settings/AdBlock/DefaultGateway" "192.168.1.1"
-updateDbusStringSetting "/Settings/AdBlock/IPRangeStart" "192.168.1.100"
-updateDbusStringSetting "/Settings/AdBlock/IPRangeEnd" "192.168.1.200"
-updateDbusIntSetting "/Settings/AdBlock/DHCPEnabled" 0
-updateDbusIntSetting "/Settings/AdBlock/IPv6Enabled" 0
-updateDbusStringSetting "/Settings/AdBlock/RawAdListMD5" ""
+# Funktion, um zu überprüfen, ob eine Einstellung bereits gesetzt ist
+check_and_update_dbus_setting() {
+    local setting_path=$1
+    local default_value=$2
+    local current_value=$(get_dbus_setting "$setting_path")
 
-# Apply the patch to integrate AdBlockSettings into PageSettings.qml
-patch /opt/victronenergy/gui/qml/PageSettings.qml < /data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch
+    if [ -z "$current_value" ]; then
+        if [[ $default_value =~ ^[0-9]+$ ]]; then
+            updateDbusIntSetting "$setting_path" "$default_value"
+        else
+            updateDbusStringSetting "$setting_path" "$default_value"
+        fi
+        echo "Einstellung $setting_path wurde auf Standardwert $default_value gesetzt."
+    else
+        echo "Einstellung $setting_path wird beibehalten mit Wert $current_value."
+    fi
+}
 
-# Stop the GUI to apply changes
-svc -d /service/gui
+# Installationsroutine
+perform_installation() {
+    echo "Installation beginnt..."
+    check_and_update_dbus_setting "/Settings/AdBlock/Enabled" 0
+    check_and_update_dbus_setting "/Settings/AdBlock/AdListURL" "https://example.com/adlist.txt"
+    check_and_update_dbus_setting "/Settings/AdBlock/UpdateInterval" "weekly"
+    check_and_update_dbus_setting "/Settings/AdBlock/DefaultGateway" "192.168.1.1"
+    check_and_update_dbus_setting "/Settings/AdBlock/IPRangeStart" "192.168.1.100"
+    check_and_update_dbus_setting "/Settings/AdBlock/IPRangeEnd" "192.168.1.200"
+    check_and_update_dbus_setting "/Settings/AdBlock/DHCPEnabled" 0
+    check_and_update_dbus_setting "/Settings/AdBlock/IPv6Enabled" 0
+    check_and_update_dbus_setting "/Settings/AdBlock/RawAdListMD5" ""
+    
+    # Apply the patch to integrate AdBlockSettings into PageSettings.qml
+    patch /opt/victronenergy/gui/qml/PageSettings.qml < /data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch
+    
+    # Stop the GUI to apply changes
+    svc -d /service/gui
+    
+    # Copy new QML files, überschreibt vorhandene Dateien
+    cp -f /data/AdBlockSettings/FileSets/VersionIndependent/*.qml /opt/victronenergy/gui/qml/
+    
+    # Start the GUI after making changes
+    svc -u /service/gui
+}
 
-# Remove existing QML files to ensure updates are applied
-rm -f /opt/victronenergy/gui/qml/PageSettingsAdBlock.qml
+# Deinstallationsroutine
+perform_uninstallation() {
+    echo "Deinstallation beginnt..."
 
-# Copy new QML files
-cp /data/AdBlockSettings/FileSets/VersionIndependent/*.qml /opt/victronenergy/gui/qml/
+    # Stop the GUI to apply changes
+    svc -d /service/gui
+    
+    # Remove the QML files added by AdBlockSettings
+    rm -f /opt/victronenergy/gui/qml/PageSettingsAdBlock.qml
+    
+    # Restore the original PageSettings.qml if a backup exists
+    # mv /opt/victronenergy/gui/qml/PageSettings.qml.orig /opt/victronenergy/gui/qml/PageSettings.qml
+    # Remove the AdBlockList
+    rm -f /etc/dnsmasq.d/AdList.conf
+    # Restore the original dnsmasq.conf if a backup exists
+    mv /etc/dnsmasq.conf.orig /etc/dnsmasq.conf
+    # Restart dnsmasq
+    /etc/init.d/dnsmasq restart
+    
+    # Restart the GUI to apply changes
+    svc -u /service/gui
+    
+    echo "Deinstallation abgeschlossen."
+}
 
-# Start the GUI after making changes
-svc -u /service/gui
+# Überprüfung und Ausführung basierend auf scriptAction
+case "$scriptAction" in
+    INSTALL)
+        perform_installation
+        ;;
+    UNINSTALL)
+        perform_uninstallation
+        ;;
+    *)
+        logMessage "Keine spezifische Aktion angegeben. Führe Standardinstallation durch..."
+        perform_installation
+        ;;
+esac
 
-# End of setup script
+echo "Skriptausführung abgeschlossen."

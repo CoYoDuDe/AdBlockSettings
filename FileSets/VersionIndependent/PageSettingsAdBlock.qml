@@ -25,7 +25,7 @@ MbPage {
 
     function applySettings() {
         var process = Qt.createQmlObject('import QtQml 2.2; QtObject { property var process: Process {}}', root);
-        process.process.program = "/data/AdBlockSettings/Scripts/dnsmasq_configurator.py"
+        process.process.program = "/data/AdBlockSettings/Scripts/adblock_manager.py"
         process.process.start();
     }
 

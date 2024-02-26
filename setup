@@ -37,7 +37,6 @@ perform_installation() {
     check_and_update_dbus_setting "/Settings/AdBlock/IPRangeEnd" "192.168.1.200"
     check_and_update_dbus_setting "/Settings/AdBlock/DHCPEnabled" 0
     check_and_update_dbus_setting "/Settings/AdBlock/IPv6Enabled" 0
-    check_and_update_dbus_setting "/Settings/AdBlock/RawAdListMD5" ""
     
     # Apply the patch to integrate AdBlockSettings into PageSettings.qml
     patch /opt/victronenergy/gui/qml/PageSettings.qml < /data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch

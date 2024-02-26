@@ -17,51 +17,38 @@ def backup_and_clear_dnsmasq_config(main_config_path="/etc/dnsmasq.conf"):
         print(f"Original dnsmasq Konfiguration gesichert als {backup_config_path}")
 
 def update_dnsmasq_config(main_config_path="/etc/dnsmasq.conf", adlist_config_path="/etc/dnsmasq.d/AdList.conf"):
-    adblock_enabled = get_dbus_setting_value("/Settings/AdBlock/Enabled")[0]
-    dhcp_enabled = get_dbus_setting_value("/Settings/AdBlock/DHCPEnabled")[0]
-    ipv6_enabled = get_dbus_setting_value("/Settings/AdBlock/IPv6Enabled")[0]
+    adblock_enabled = get_dbus_setting_value("/Settings/AdBlock/Enabled")
+    dhcp_enabled = get_dbus_setting_value("/Settings/AdBlock/DHCPEnabled")
+    ipv6_enabled = get_dbus_setting_value("/Settings/AdBlock/IPv6Enabled")
+
+    if not os.path.exists(main_config_path):
+        open(main_config_path, 'a').close()
+        print(f"Neue dnsmasq Konfigurationsdatei erstellt: {main_config_path}")
 
     with open(main_config_path, 'r') as file:
-        lines = file.readlines()
+        existing_lines = file.readlines()
 
-    updated_lines = []
-    dhcp_configured = False
-    ipv6_configured = False
-    adblock_configured = False
+    required_settings = [
+        "domain-needed",
+        "bogus-priv",
+        "interface=lo",
+        "bind-interfaces",
+        "resolv-file=/run/resolv.conf",
+        "no-poll",
+        "no-hosts"
+    ]
 
-    for line in lines:
-        if "dhcp-range" in line or "dhcp-option" in line or "dhcp-authoritative" in line:
-            dhcp_configured = True
-            if not dhcp_enabled:
-                if not line.strip().startswith("#"):
-                    line = "#" + line
-            else:
-                if line.strip().startswith("#"):
-                    line = line[1:]
-        elif "enable-ra" in line:
-            ipv6_configured = True
-            if not ipv6_enabled:
-                if not line.strip().startswith("#"):
-                    line = "#" + line
-            else:
-                if line.strip().startswith("#"):
-                    line = line[1:]
-        elif adlist_config_path in line:
-            adblock_configured = True
-            if not adblock_enabled:
-                continue
-        updated_lines.append(line)
-
-    if adblock_enabled and not adblock_configured:
-        updated_lines.append(f"conf-file={adlist_config_path}\n")
+    for setting in required_settings:
+        if all(setting not in line for line in existing_lines):
+            existing_lines.append(setting + "\n")
 
     with open(main_config_path, 'w') as file:
-        file.writelines(updated_lines)
+        file.writelines(existing_lines)
 
     print("dnsmasq Konfiguration aktualisiert.")
 
 def restart_dnsmasq():
-    os.system("service dnsmasq restart")
+    os.system("/etc/init.d/dnsmasq restart")
 
 def configure_dnsmasq():
     backup_and_clear_dnsmasq_config()

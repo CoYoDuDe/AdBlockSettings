@@ -19,13 +19,13 @@ MbPage {
 
     function downloadAdList() {
         var process = Qt.createQmlObject('import QtQml 2.2; QtObject { property var process: Process {}}', root);
-        process.process.program = "/pfad/zum/blocklist_downloader.py"
+        process.process.program = "/data/AdBlockSettings/Scripts/blocklist_downloader.py"
         process.process.start();
     }
 
     function applySettings() {
         var process = Qt.createQmlObject('import QtQml 2.2; QtObject { property var process: Process {}}', root);
-        process.process.program = "/pfad/zum/dnsmasq_configurator.py"
+        process.process.program = "/data/AdBlockSettings/Scripts/dnsmasq_configurator.py"
         process.process.start();
     }
 

@@ -10,8 +10,7 @@ def get_dbus_setting_value(path):
     settings_service = bus.get_object("com.victronenergy.settings", path)
     settings_interface = dbus.Interface(settings_service, dbus_interface='com.victronenergy.BusItem')
     value = settings_interface.GetValue()
-    if isinstance(value, dbus.ByteArray):
-        return ''.join(format(byte, '02x') for byte in value)  # Konvertiert Byte-Array zu Hex-String
+    print(f"Value for path {path}: {value}")
     return value
 
 def set_dbus_setting_value(path, value):

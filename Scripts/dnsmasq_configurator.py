@@ -1,11 +1,14 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import dbus
 import os
 
-def get_dbus_setting(service, path):
+def get_dbus_setting_value(path):
     bus = dbus.SystemBus()
-    settings_service = bus.get_object(service, '/')
-    settings_interface = dbus.Interface(settings_service, dbus_interface='org.freedesktop.DBus.Properties')
-    return settings_interface.Get('com.victronenergy.settings', path)
+    settings_service = bus.get_object("com.victronenergy.settings", path)
+    settings_interface = dbus.Interface(settings_service, dbus_interface='com.victronenergy.BusItem')
+    return settings_interface.GetValue()
 
 def backup_and_clear_dnsmasq_config(main_config_path="/etc/dnsmasq.conf"):
     backup_config_path = f"{main_config_path}.orig"
@@ -14,9 +17,9 @@ def backup_and_clear_dnsmasq_config(main_config_path="/etc/dnsmasq.conf"):
         print(f"Original dnsmasq Konfiguration gesichert als {backup_config_path}")
 
 def update_dnsmasq_config(main_config_path="/etc/dnsmasq.conf", adlist_config_path="/etc/dnsmasq.d/AdList.conf"):
-    adblock_enabled = get_dbus_setting("com.victronenergy.settings", "/Settings/AdBlock/Enabled")
-    dhcp_enabled = get_dbus_setting("com.victronenergy.settings", "/Settings/AdBlock/DHCPEnabled")
-    ipv6_enabled = get_dbus_setting("com.victronenergy.settings", "/Settings/AdBlock/IPv6Enabled")
+    adblock_enabled = get_dbus_setting_value("/Settings/AdBlock/Enabled")[0]
+    dhcp_enabled = get_dbus_setting_value("/Settings/AdBlock/DHCPEnabled")[0]
+    ipv6_enabled = get_dbus_setting_value("/Settings/AdBlock/IPv6Enabled")[0]
 
     with open(main_config_path, 'r') as file:
         lines = file.readlines()
@@ -46,7 +49,7 @@ def update_dnsmasq_config(main_config_path="/etc/dnsmasq.conf", adlist_config_pa
         elif adlist_config_path in line:
             adblock_configured = True
             if not adblock_enabled:
-                continue  # Ãœberspringe das HinzufÃ¼gen dieser Zeile, wenn AdBlock deaktiviert ist
+                continue
         updated_lines.append(line)
 
     if adblock_enabled and not adblock_configured:
@@ -58,12 +61,12 @@ def update_dnsmasq_config(main_config_path="/etc/dnsmasq.conf", adlist_config_pa
     print("dnsmasq Konfiguration aktualisiert.")
 
 def restart_dnsmasq():
-    os.system("/etc/init.d/dnsmasq restart")
-    print("dnsmasq neu gestartet.")
+    os.system("service dnsmasq restart")
+
+def configure_dnsmasq():
+    backup_and_clear_dnsmasq_config()
+    update_dnsmasq_config()
+    restart_dnsmasq()
 
 if __name__ == "__main__":
-    main_config_path = "/etc/dnsmasq.conf"
-    adlist_config_path = "/etc/dnsmasq.d/AdList.conf"
-    backup_and_clear_dnsmasq_config(main_config_path)
-    update_dnsmasq_config(main_config_path, adlist_config_path)
-    restart_dnsmasq()
+    configure_dnsmasq()

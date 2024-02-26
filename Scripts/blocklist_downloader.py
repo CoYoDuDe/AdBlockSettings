@@ -1,19 +1,22 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import dbus
 import requests
 import hashlib
 import os
 
-def get_dbus_setting(service, path):
+def get_dbus_setting_value(path):
     bus = dbus.SystemBus()
-    settings_service = bus.get_object(service, '/')
-    settings_interface = dbus.Interface(settings_service, dbus_interface='org.freedesktop.DBus.Properties')
-    return settings_interface.Get('com.victronenergy.settings', path)
+    settings_service = bus.get_object("com.victronenergy.settings", path)
+    settings_interface = dbus.Interface(settings_service, dbus_interface='com.victronenergy.BusItem')
+    return settings_interface.GetValue()
 
-def set_dbus_setting(service, path, value):
+def set_dbus_setting_value(path, value):
     bus = dbus.SystemBus()
-    settings_service = bus.get_object(service, '/')
-    settings_interface = dbus.Interface(settings_service, dbus_interface='org.freedesktop.DBus.Properties')
-    settings_interface.Set('com.victronenergy.settings', path, value)
+    settings_service = bus.get_object("com.victronenergy.settings", "/")
+    settings_interface = dbus.Interface(settings_service, dbus_interface='com.victronenergy.BusItem')
+    settings_interface.SetValue(path, value)
 
 def calculate_md5(content):
     hash_md5 = hashlib.md5()
@@ -24,11 +27,11 @@ def convert_to_dnsmasq_format(lines):
     return ["address=/{}/".format(line.split()[1]) for line in lines if line]
 
 def download_and_configure_ad_list():
-    ad_list_url = get_dbus_setting("com.victronenergy.settings", "/Settings/AdBlock/AdListURL")
+    ad_list_url = get_dbus_setting_value("/Settings/AdBlock/AdListURL")
     response = requests.get(ad_list_url)
     if response.status_code == 200:
         raw_content_md5 = calculate_md5(response.text)
-        previous_raw_md5 = get_dbus_setting("com.victronenergy.settings", "/Settings/AdBlock/RawAdListMD5")
+        previous_raw_md5 = get_dbus_setting_value("/Settings/AdBlock/RawAdListMD5")
 
         if raw_content_md5 != previous_raw_md5:
             lines = response.text.strip().split('\n')
@@ -38,8 +41,7 @@ def download_and_configure_ad_list():
             with open(file_path, "w") as f:
                 f.write('\n'.join(dnsmasq_lines))
 
-            # Speichern des MD5-Werts der rohen Ad-Liste fÃ¼r zukÃ¼nftige Vergleiche
-            set_dbus_setting("com.victronenergy.settings", "/Settings/AdBlock/RawAdListMD5", raw_content_md5)
+            set_dbus_setting_value("/Settings/AdBlock/RawAdListMD5", dbus.ByteArray(raw_content_md5.encode('utf-8')))
 
             print("Ad-List successfully downloaded, converted, and updated.")
         else:

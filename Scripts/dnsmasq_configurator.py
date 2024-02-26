@@ -8,7 +8,9 @@ def get_dbus_setting_value(path):
     bus = dbus.SystemBus()
     settings_service = bus.get_object("com.victronenergy.settings", path)
     settings_interface = dbus.Interface(settings_service, dbus_interface='com.victronenergy.BusItem')
-    return settings_interface.GetValue()
+    value = settings_interface.GetValue()
+    print(f"Value for path {path}: {value}")
+    return value
 
 def backup_and_clear_dnsmasq_config(main_config_path="/etc/dnsmasq.conf"):
     backup_config_path = f"{main_config_path}.orig"

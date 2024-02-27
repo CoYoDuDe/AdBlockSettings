@@ -13,10 +13,14 @@ static_dnsmasq_config_path = "/etc/dnsmasq_static.conf"
 
 def get_dbus_setting_value(path):
     bus = dbus.SystemBus()
-    settings_service = bus.get_object("com.victronenergy.settings", path)
-    settings_interface = dbus.Interface(settings_service, dbus_interface='com.victronenergy.BusItem')
-    value = settings_interface.GetValue()
-    return value
+    try:
+        settings_service = bus.get_object("com.victronenergy.settings", path)
+        settings_interface = dbus.Interface(settings_service, dbus_interface='com.victronenergy.BusItem')
+        value = settings_interface.GetValue()  # Aufruf ohne Argumente, wie in der Interface-Definition
+        return value
+    except dbus.DBusException as e:
+        print(f"DBus Fehler: {e}")
+        return None
 
 def update_cronjob():
     script_path = os.path.abspath(__file__)  # Korrektur für den Skriptpfad
@@ -94,7 +98,7 @@ def configure_dnsmasq():
         default_gateway = get_dbus_setting_value("/Settings/AdBlock/DefaultGateway")
         ip_range_start = get_dbus_setting_value("/Settings/AdBlock/IPRangeStart")
         ip_range_end = get_dbus_setting_value("/Settings/AdBlock/IPRangeEnd")
-        dhcp_range = f"{ip_range_start},{ip_range_end},12h"  # Beispiel für die Lease-Zeit
+        dhcp_range = f"{ip_range_start},{ip_range_end},12h"
         new_config += f"dhcp-range={dhcp_range}\n"
         new_config += f"dhcp-option=option:router,{default_gateway}\n"
 

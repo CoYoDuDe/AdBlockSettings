@@ -2,25 +2,40 @@ import argparse
 import requests
 from pathlib import Path
 import dbus
+import sys
 import os
 import subprocess
 import hashlib
+from dbus.mainloop.glib import DBusGMainLoop
+
+# Importieren der VeDbusItemImport und VeDbusItemExport Klassen
+sys.path.insert(1, os.path.join(os.path.dirname(__file__), '/data/AdBlockSettings'))
+from vedbus import VeDbusItemExport, VeDbusItemImport
+
+DBusGMainLoop(set_as_default=True)
+dbus_system_bus = dbus.SystemBus()
 
 # Globale Einstellungen
 local_file_path = '/etc/dnsmasq.d/adblock.conf'
 dnsmasq_config_path = "/etc/dnsmasq.conf"
 static_dnsmasq_config_path = "/etc/dnsmasq_static.conf"
+dbus_system_bus = dbus.SystemBus()
 
 def get_dbus_setting_value(path):
-    bus = dbus.SystemBus()
     try:
-        settings_service = bus.get_object("com.victronenergy.settings", path)
-        settings_interface = dbus.Interface(settings_service, dbus_interface='com.victronenergy.BusItem')
-        value = settings_interface.GetValue()  # Aufruf ohne Argumente, wie in der Interface-Definition
-        return value
-    except dbus.DBusException as e:
+        item = VeDbusItemImport(dbus_system_bus, 'com.victronenergy.settings', path)
+        return item.get_value()
+    except Exception as e:
         print(f"DBus Fehler: {e}")
         return None
+
+def set_dbus_setting_value(path, value):
+    try:
+        item = VeDbusItemExport(dbus_system_bus, path, value, writeable=True)
+        item.local_set_value(value)
+        print(f"Wert für Pfad {path} im D-Bus aktualisiert: {value}")
+    except Exception as e:
+        print(f"Fehler beim Aktualisieren des D-Bus Wertes: {e}")
 
 def update_cronjob():
     script_path = os.path.abspath(__file__)  # Korrektur für den Skriptpfad

@@ -3,7 +3,7 @@ import requests
 from pathlib import Path
 import dbus
 import os
-import crontab
+import subprocess
 import hashlib
 
 # Globale Einstellungen
@@ -21,29 +21,41 @@ def get_dbus_setting_value(path):
 def update_cronjob():
     script_path = os.path.abspath(__file__)  # Korrektur für den Skriptpfad
     update_interval = get_dbus_setting_value("/Settings/AdBlock/UpdateInterval")
-    cron = crontab.CronTab(user=True)
     cron_job_comment = "dnsmasq_adblock_update"
+    command = f'python {script_path} --download'
 
     # Bestehenden Cronjob entfernen
-    cron.remove_all(comment=cron_job_comment)
+    subprocess.call(['crontab', '-l', '|', 'grep', '-v', cron_job_comment, '|', 'crontab', '-'])
 
     # Neuen Job basierend auf dem Update-Intervall hinzufügen
-    job = cron.new(command=f'python {script_path} --download', comment=cron_job_comment)
     if update_interval == "daily":
-        job.every().day()
+        schedule = "@daily"
     elif update_interval == "weekly":
-        job.every().week()
+        schedule = "@weekly"
     elif update_interval == "monthly":
-        job.every().month()
+        schedule = "@monthly"
+    else:
+        return  # Ungültiges Intervall
 
-    cron.write()
+    # Neuen Cronjob hinzufügen
+    cron_job = f"{schedule} {command} # {cron_job_comment}\n"
+    subprocess.call(['(crontab', '-l;', 'echo', f'"{cron_job}"', ')', '|', 'crontab', '-'])
+
     print("Cronjob für AdBlock-Listenupdate wurde aktualisiert.")
 
 def calculate_hash(content):
     return hashlib.sha256(content.encode('utf-8')).hexdigest()
 
 def convert_to_dnsmasq_format(lines):
-    return ["address=/{}/".format(line.strip()) for line in lines if line.strip() and not line.startswith("#")]
+    converted_lines = []
+    for line in lines:
+        if line.strip() and not line.startswith("#"):  # Überprüft, ob die Zeile nicht leer und kein Kommentar ist
+            parts = line.split()  # Trennt die Zeile an Leerzeichen
+            if len(parts) >= 2:  # Stellt sicher, dass die Zeile eine IP-Adresse und eine Domain enthält
+                domain = parts[1]  # Die Domain ist der zweite Teil der Zeile (nach der IP-Adresse)
+                converted_line = f"address=/{domain}/0.0.0.0"  # Formatierung für dnsmasq
+                converted_lines.append(converted_line)
+    return converted_lines
 
 def download_adblock_list():
     print("Starte Download der AdBlock-Liste...")

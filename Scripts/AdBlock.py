@@ -101,14 +101,14 @@ def download_adblock_list():
 
 def configure_dnsmasq():
     print("Starte Konfiguration von dnsmasq...")
-    adblock_enabled = get_dbus_setting_value("/Settings/AdBlock/Enabled")
-    dhcp_enabled = get_dbus_setting_value("/Settings/DHCP/Enabled")
 
     new_config = f"conf-file={static_dnsmasq_config_path}\n"
 
+    adblock_enabled = get_dbus_setting_value("/Settings/AdBlock/Enabled")
     if adblock_enabled:
         new_config += f"conf-file={local_file_path}\n"
 
+    dhcp_enabled = get_dbus_setting_value("/Settings/AdBlock/DHCPEnabled")
     if dhcp_enabled:
         default_gateway = get_dbus_setting_value("/Settings/AdBlock/DefaultGateway")
         ip_range_start = get_dbus_setting_value("/Settings/AdBlock/IPRangeStart")

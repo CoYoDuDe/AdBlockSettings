@@ -4,6 +4,12 @@
 # Load CommonResources
 source /data/SetupHelper/CommonResources
 
+# Set Install Directory
+ROOT_PATH=/data/AdBlockSettings
+
+# Set URL Prefixes
+GIT_VICTRON=https://raw.githubusercontent.com/victronenergy/velib_python/master
+
 # Funktion, um zu überprüfen, ob eine Einstellung bereits gesetzt ist
 check_and_update_dbus_setting() {
     local setting_path=$1
@@ -45,6 +51,11 @@ perform_installation() {
     # Stop the GUI to apply changes
     svc -d /service/gui
     
+# Get library files from velib_python from victronenergy
+echo "| - Downloading libraries..."
+wget ${GIT_VICTRON}/vedbus.py -O ${ROOT_PATH}/vedbus.py 2> /dev/null
+wget ${GIT_VICTRON}/ve_utils.py -O ${ROOT_PATH}/ve_utils.py 2> /dev/null
+
     # Copy new QML files, überschreibt vorhandene Dateien
     cp -f /data/AdBlockSettings/FileSets/VersionIndependent/*.qml /opt/victronenergy/gui/qml/
     cp -f /data/AdBlockSettings/FileSets/dnsmasq_static.conf /etc/dnsmasq_static.conf

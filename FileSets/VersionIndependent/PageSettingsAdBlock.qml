@@ -17,17 +17,21 @@ MbPage {
         return Utils.path(settingsPrefix, param)
     }
 
-    function downloadAdList() {
-        var process = Qt.createQmlObject('import QtQml 2.2; QtObject { property var process: Process {}}', root);
-        process.process.program = "/data/AdBlockSettings/Scripts/blocklist_downloader.py"
-        process.process.start();
-    }
+function downloadAdList() {
+    var process = Qt.createQmlObject('import QtQml 2.2; import QtQuick 2.0; QtObject { property var process: Process {}}', root);
+    process.process = Qt.createQmlObject('import QtQml.Models 2.3; Process {}', root);
+    process.process.program = "/usr/bin/python3"; // Achten Sie darauf, den korrekten Pfad zu Python anzugeben
+    process.process.arguments = ["/data/AdBlockSettings/Scripts/AdBlock.py", "--download"];
+    process.process.start();
+}
 
-    function applySettings() {
-        var process = Qt.createQmlObject('import QtQml 2.2; QtObject { property var process: Process {}}', root);
-        process.process.program = "/data/AdBlockSettings/Scripts/adblock_manager.py"
-        process.process.start();
-    }
+function applySettings() {
+    var process = Qt.createQmlObject('import QtQml 2.2; import QtQuick 2.0; QtObject { property var process: Process {}}', root);
+    process.process = Qt.createQmlObject('import QtQml.Models 2.3; Process {}', root);
+    process.process.program = "/usr/bin/python3"; // Achten Sie darauf, den korrekten Pfad zu Python anzugeben
+    process.process.arguments = ["/data/AdBlockSettings/Scripts/AdBlock.py", "--configure"];
+    process.process.start();
+}
 
     model: VisibleItemModel {
         MbSwitch {

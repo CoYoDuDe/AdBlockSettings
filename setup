@@ -37,7 +37,8 @@ perform_installation() {
     check_and_update_dbus_setting "/Settings/AdBlock/IPRangeEnd" "192.168.1.200"
     check_and_update_dbus_setting "/Settings/AdBlock/DHCPEnabled" 0
     check_and_update_dbus_setting "/Settings/AdBlock/IPv6Enabled" 0
-    
+    check_and_update_dbus_setting "/Settings/AdBlock/LastKnownHash" "weekly"   
+
     # Apply the patch to integrate AdBlockSettings into PageSettings.qml
     patch /opt/victronenergy/gui/qml/PageSettings.qml < /data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch
     
@@ -46,7 +47,8 @@ perform_installation() {
     
     # Copy new QML files, überschreibt vorhandene Dateien
     cp -f /data/AdBlockSettings/FileSets/VersionIndependent/*.qml /opt/victronenergy/gui/qml/
-    
+    cp -f /data/AdBlockSettings/FileSets/dnsmasq_static.conf /etc/dnsmasq_static.conf
+
     # Start the GUI after making changes
     svc -u /service/gui
 }

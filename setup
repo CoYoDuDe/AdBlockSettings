@@ -1,66 +1,97 @@
 #!/bin/bash
-# Final adjusted setup script for AdBlockSettings
+# Einrichtungsskript für AdBlockSettings
 
-# Load CommonResources
+# Gemeinsame Ressourcen laden
 source /data/SetupHelper/CommonResources
 
-# Set Install Directory
+# Installationsverzeichnis festlegen
 ROOT_PATH=/data/AdBlockSettings
 
-# Set URL Prefixes
-GIT_VICTRON=https://raw.githubusercontent.com/victronenergy/velib_python/master
+# D-Bus-Einstellungspfade und -Servicepfade definieren
+SETTINGS_PREFIX="com.victronenergy.settings/Settings/AdBlock"
 
-# Funktion, um zu überprüfen, ob eine Einstellung bereits gesetzt ist
-check_and_update_dbus_setting() {
-    local setting_path=$1
-    local default_value=$2
-    # Verwenden Sie dbus-send, um den aktuellen Wert zu erhalten, und awk, um den Wert zu extrahieren
-    local current_value=$(dbus-send --system --print-reply --dest=com.victronenergy.settings $setting_path com.victronenergy.BusItem.GetValue | awk '/variant/ {print $3}')
+# Standardwert für D-Bus-Einstellungen
+DEFAULT_SETTINGS=(
+    "Enabled:0"
+    "AdListURL:https://example.com/adlist.txt"
+    "UpdateInterval:weekly"
+    "DefaultGateway:192.168.1.1"
+    "IPRangeStart:192.168.1.100"
+    "IPRangeEnd:192.168.1.200"
+    "DHCPEnabled:0"
+    "IPv6Enabled:0"
+    "LastKnownHash:"
+    "ApplySettingsTrigger:"
+    "DownloadTrigger:"
+)
 
-    # Überprüfen Sie, ob der aktuelle Wert "null" ist oder keine Zeichenfolge zurückgegeben wurde
-    if [[ -z "$current_value" || "$current_value" == "null" ]]; then
-        # Wert ist nicht gesetzt, aktualisieren Sie ihn mit dem Standardwert
-        if [[ $default_value =~ ^[0-9]+$ ]]; then
-            updateDbusIntSetting "$setting_path" "$default_value"
+# Funktion zum Erstellen von D-Bus-Einstellungspfaden mit Standardwerten
+create_dbus_setting_paths_with_default_values() {
+    for setting in "${DEFAULT_SETTINGS[@]}"; do
+        dbus-send --system --type=method_call --print-reply --dest=com.victronenergy.settings /com/victronenergy/settings com.victronenergy.BusItem.Get | grep "$SETTINGS_PREFIX/$setting" > /dev/null
+        if [ $? -ne 0 ]; then
+            dbus-send --system --type=method_call --print-reply --dest=com.victronenergy.settings /com/victronenergy/settings com.victronenergy.BusItem.CreateDictEntry string:"$SETTINGS_PREFIX/$setting" string:""
+            logMessage "Einstellungspfad $SETTINGS_PREFIX/$setting erstellt."
         else
-            updateDbusStringSetting "$setting_path" "$default_value"
+            logMessage "Einstellungspfad $SETTINGS_PREFIX/$setting ist bereits vorhanden."
         fi
-        logMessage "Einstellung $setting_path wurde auf Standardwert $default_value gesetzt."
-    else
-        # Wert ist bereits gesetzt, keine Aktualisierung erforderlich
-        logMessage "Einstellung $setting_path wird beibehalten mit Wert $current_value."
-    fi
+    done
+}
+
+# Funktion, symlink zu zu rc.local hinzuzufügen
+add_symlink_entry_to_rc_local() {
+    local RC_LOCAL_PATH="/data/rc.local"
+    local ENTRY="ln -s /data/AdBlockSettings/service/AdBlockSettings /service/AdBlockSettings"
+
+    [ ! -f "$RC_LOCAL_PATH" ] && echo "$ENTRY" > "$RC_LOCAL_PATH" || [ ! "$(grep "$ENTRY" "$RC_LOCAL_PATH")" ] && echo "$ENTRY" >> "$RC_LOCAL_PATH"
+    chmod +x "$RC_LOCAL_PATH"
+}
+
+# Funktion, symlink aus rc.local zu entfernen
+remove_symlink_entry_from_rc_local() {
+    local RC_LOCAL_PATH="/data/rc.local"
+    local ENTRY="ln -s /data/AdBlockSettings/service/AdBlockSettings /service/AdBlockSettings"
+
+    [ -f "$RC_LOCAL_PATH" ] && sed -i "/^$(echo "$ENTRY" | sed 's/[\/&]/\\&/g')$/d" "$RC_LOCAL_PATH"
+}
+
+# Funktion, um den dnsmasq-Starteintrag zu rc.local hinzuzufügen
+add_dnsmasq_entry_to_rc_local() {
+    local RC_LOCAL_PATH="/data/rc.local"
+    local ENTRY="/etc/init.d/dnsmasq start"
+
+    [ ! -f "$RC_LOCAL_PATH" ] && echo "$ENTRY" > "$RC_LOCAL_PATH" || [ ! "$(grep "$ENTRY" "$RC_LOCAL_PATH")" ] && echo "$ENTRY" >> "$RC_LOCAL_PATH"
+    chmod +x "$RC_LOCAL_PATH"
+}
+
+# Funktion, um den dnsmasq-Starteintrag aus rc.local zu entfernen
+remove_dnsmasq_entry_from_rc_local() {
+    local RC_LOCAL_PATH="/data/rc.local"
+    local ENTRY="/etc/init.d/dnsmasq start"
+
+    [ -f "$RC_LOCAL_PATH" ] && sed -i "/^$(echo "$ENTRY" | sed 's/[\/&]/\\&/g')$/d" "$RC_LOCAL_PATH"
 }
 
 # Installationsroutine
 perform_installation() {
     logMessage "Installation beginnt..."
-    check_and_update_dbus_setting "/Settings/AdBlock/Enabled" 0
-    check_and_update_dbus_setting "/Settings/AdBlock/AdListURL" "https://example.com/adlist.txt"
-    check_and_update_dbus_setting "/Settings/AdBlock/UpdateInterval" "weekly"
-    check_and_update_dbus_setting "/Settings/AdBlock/DefaultGateway" "192.168.1.1"
-    check_and_update_dbus_setting "/Settings/AdBlock/IPRangeStart" "192.168.1.100"
-    check_and_update_dbus_setting "/Settings/AdBlock/IPRangeEnd" "192.168.1.200"
-    check_and_update_dbus_setting "/Settings/AdBlock/DHCPEnabled" 0
-    check_and_update_dbus_setting "/Settings/AdBlock/IPv6Enabled" 0
-    check_and_update_dbus_setting "/Settings/AdBlock/LastKnownHash" "weekly"   
+    # Erstellen Sie D-Bus-Einstellungspfade mit Standardwerten
+    create_dbus_setting_paths_with_default_values
 
-    # Apply the patch to integrate AdBlockSettings into PageSettings.qml
-    patch /opt/victronenergy/gui/qml/PageSettings.qml < /data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch
-    
-    # Stop the GUI to apply changes
+    # symlink zu zu rc.local hinzuzufügen
+    add_symlink_entry_to_rc_local
+
+    # dnsmasq-Starteintrag zu rc.local hinzufügen
+    add_dnsmasq_entry_to_rc_local
+
+    # GUI stoppen, um Änderungen anzuwenden
     svc -d /service/gui
-    
-# Get library files from velib_python from victronenergy
-echo "| - Downloading libraries..."
-wget ${GIT_VICTRON}/vedbus.py -O ${ROOT_PATH}/vedbus.py 2> /dev/null
-wget ${GIT_VICTRON}/ve_utils.py -O ${ROOT_PATH}/ve_utils.py 2> /dev/null
 
-    # Copy new QML files, überschreibt vorhandene Dateien
+    # Neue QML-Dateien kopieren, überschreibt vorhandene Dateien
     cp -f /data/AdBlockSettings/FileSets/VersionIndependent/*.qml /opt/victronenergy/gui/qml/
     cp -f /data/AdBlockSettings/FileSets/dnsmasq_static.conf /etc/dnsmasq_static.conf
 
-    # Start the GUI after making changes
+    # GUI nach Änderungen starten
     svc -u /service/gui
 }
 
@@ -68,28 +99,31 @@ wget ${GIT_VICTRON}/ve_utils.py -O ${ROOT_PATH}/ve_utils.py 2> /dev/null
 perform_uninstallation() {
     logMessage "Deinstallation beginnt..."
 
-    # Stop the GUI to apply changes
+    # GUI stoppen, um Änderungen anzuwenden
     svc -d /service/gui
-    
-    # Remove the QML files added by AdBlockSettings
+
+	# symlink aus rc.local zu entfernen
+    remove_symlink_entry_from_rc_local
+	
+    # dnsmasq-Starteintrag aus rc.local entfernen
+    remove_dnsmasq_entry_from_rc_local
+
+    # Hinzugefügte QML-Dateien von AdBlockSettings entfernen
     rm -f /opt/victronenergy/gui/qml/PageSettingsAdBlock.qml
-    
-    # Restore the original PageSettings.qml if a backup exists
-    # mv /opt/victronenergy/gui/qml/PageSettings.qml.orig /opt/victronenergy/gui/qml/PageSettings.qml
-    # Remove the AdBlockList
-    rm -f /etc/dnsmasq.d/AdList.conf
-    # Restore the original dnsmasq.conf if a backup exists
-    mv /etc/dnsmasq.conf.orig /etc/dnsmasq.conf
-    # Restart dnsmasq
+
+    # Original dnsmasq.conf wiederherstellen
+    [ -f "/etc/dnsmasq.conf.orig" ] && mv /etc/dnsmasq.conf.orig /etc/dnsmasq.conf
+
+    # dnsmasq neu starten
     /etc/init.d/dnsmasq restart
-    
-    # Restart the GUI to apply changes
+
+    # GUI nach Änderungen neu starten
     svc -u /service/gui
-    
+
     logMessage "Deinstallation abgeschlossen."
 }
 
-# Überprüfung und Ausführung basierend auf scriptAction
+# Ausführung basierend auf der angegebenen Aktion
 case "$scriptAction" in
     INSTALL)
         perform_installation
@@ -98,8 +132,8 @@ case "$scriptAction" in
         perform_uninstallation
         ;;
     *)
-        logMessage "Keine spezifische Aktion angegeben. Führe Standardinstallation durch..."
-        perform_installation
+        logMessage "Unbekannte Aktion: $scriptAction. Beende Skript."
+        exit 1
         ;;
 esac
 

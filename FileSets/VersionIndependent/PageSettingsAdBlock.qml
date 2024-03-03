@@ -6,32 +6,8 @@ MbPage {
     id: root
     title: qsTr("AdBlock Settings")
 
-    property bool isCurrentItem: root.ListView.isCurrentItem
-    property MbStyle style: MbStyle { isCurrentItem: root.ListView.isCurrentItem }
-
     property string settingsPrefix: "com.victronenergy.settings/Settings/AdBlock"
     property string servicePrefix: "com.victronenergy.adblock"
-
-    function getSettingsBind(param)
-    {
-        return Utils.path(settingsPrefix, param)
-    }
-
-function downloadAdList() {
-    var process = Qt.createQmlObject('import QtQml 2.2; import QtQuick 2.0; QtObject { property var process: Process {}}', root);
-    process.process = Qt.createQmlObject('import QtQml.Models 2.3; Process {}', root);
-    process.process.program = "/usr/bin/python3"; // Achten Sie darauf, den korrekten Pfad zu Python anzugeben
-    process.process.arguments = ["/data/AdBlockSettings/Scripts/AdBlock.py", "--download"];
-    process.process.start();
-}
-
-function applySettings() {
-    var process = Qt.createQmlObject('import QtQml 2.2; import QtQuick 2.0; QtObject { property var process: Process {}}', root);
-    process.process = Qt.createQmlObject('import QtQml.Models 2.3; Process {}', root);
-    process.process.program = "/usr/bin/python3"; // Achten Sie darauf, den korrekten Pfad zu Python anzugeben
-    process.process.arguments = ["/data/AdBlockSettings/Scripts/AdBlock.py", "--configure"];
-    process.process.start();
-}
 
     model: VisibleItemModel {
         MbSwitch {
@@ -56,53 +32,60 @@ function applySettings() {
             id: iPRangeStartBox
             description: qsTr("IP Range Start")
             maximumLength: 20
-            item.bind: getSettingsBind("/IPRangeStart")
+            item.bind: Utils.path(settingsPrefix, "/IPRangeStart")
         }
 
         MbEditBox {
             id: iPRangeEndBox
             description: qsTr("IP Range End")
             maximumLength: 20
-            item.bind: getSettingsBind("/IPRangeEnd")
+            item.bind: Utils.path(settingsPrefix, "/IPRangeEnd")
         }
 
         MbEditBox {
             id: defaultGatewayBox
             description: qsTr("Default Gateway")
             maximumLength: 20
-            item.bind: getSettingsBind("/DefaultGateway")
+            item.bind: Utils.path(settingsPrefix, "/DefaultGateway")
         }
 
         MbEditBox {
             id: adListURLBox
-            description: qsTr("AdListURL")
+            description: qsTr("AdList URL")
             maximumLength: 100
-            item.bind: getSettingsBind("/AdListURL")
-        }
-
-        MbOK {
-            id: downloadHostsButton
-            description: ""
-            value: qsTr ("Download Hosts")
-			onClicked: downloadAdList()
+            item.bind: Utils.path(settingsPrefix, "/AdListURL")
         }
 
         MbItemOptions {
             id: updateIntervalOption
-            description: qsTr("BlockListUpdateInterval")
+            description: qsTr("BlockList Update Interval")
             bind: Utils.path(settingsPrefix, "/UpdateInterval")
             possibleValues: [
-                MbOption { description: qsTr("Täglich"); value: "daily" },
-                MbOption { description: qsTr("Wöchentlich"); value: "weekly" },
-                MbOption { description: qsTr("Monatlich"); value: "monthly" }
+                MbOption { description: qsTr("Daily"); value: "daily" },
+                MbOption { description: qsTr("Weekly"); value: "weekly" },
+                MbOption { description: qsTr("Monthly"); value: "monthly" }
             ]
         }
 
-        MbOK {
-            id: uebernehmenButton
-            description: ""
-            value: qsTr ("Übernehmen")
-			onClicked: applySettings()
+    MbOK {
+        id: downloadButton  // ID hinzugefügt
+        description: qsTr("Download Hosts")
+        value: qsTr("Download")
+        onClicked: {
+            adBlockDownloadTrigger.setValue(true);
         }
     }
+
+    MbOK {
+        id: applyButton  // ID hinzugefügt
+        description: qsTr("Apply Settings")
+        value: qsTr("Apply")
+        onClicked: {
+            adBlockApplySettingsTrigger.setValue(true);
+        }
+    }
+}
+
+    VBusItem { id: adBlockDownloadTrigger; bind: Utils.path(servicePrefix, "/DownloadTrigger") }
+    VBusItem { id: adBlockApplySettingsTrigger; bind: Utils.path(servicePrefix, "/ConfigureTrigger") }
 }

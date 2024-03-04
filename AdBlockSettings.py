@@ -66,15 +66,27 @@ class AdBlockService(dbus.service.Object):
     def ConfigureDnsmasqFinished(self):
         pass
 
-    def start_download(self, path, value):
-        if value:
-            threading.Thread(target=self.update_adblock_list).start()
-            self.dbus_service[path] = False
+def start_download(self, path, value):
+    if value:
+        # Startet den Download in einem neuen Thread
+        download_thread = threading.Thread(target=self.update_adblock_list)
+        download_thread.start()
+        # Setzt den Wert im dbus_service zurück, nachdem der Thread gestartet wurde
+        self.dbus_service[path] = False
 
-    def start_configure(self, path, value):
-        if value:
-            threading.Thread(target=self.configure_dnsmasq).start()
-            self.dbus_service[path] = False
+def start_configure(self, path, value):
+    if value:
+        # Startet den Download zuerst in einem neuen Thread
+        download_thread = threading.Thread(target=self.update_adblock_list)
+        download_thread.start()
+        # Wartet, bis der Download abgeschlossen ist
+        download_thread.join()
+
+        # Startet die Konfiguration in einem neuen Thread, nachdem der Download abgeschlossen ist
+        configure_thread = threading.Thread(target=self.configure_dnsmasq)
+        configure_thread.start()
+        # Setzt den Wert im dbus_service zurück, nachdem der Thread gestartet wurde
+        self.dbus_service[path] = False
 
     def calculate_hash(self, content):
         """Berechnet den SHA-256-Hash eines Inhalts."""

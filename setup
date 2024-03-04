@@ -89,6 +89,9 @@ perform_installation() {
 
     # Neue QML-Dateien kopieren, überschreibt vorhandene Dateien
     cp -f /data/AdBlockSettings/FileSets/VersionIndependent/*.qml /opt/victronenergy/gui/qml/
+
+patch /opt/victronenergy/gui/qml/PageSettings.qml < /data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch
+
     cp -f /data/AdBlockSettings/FileSets/dnsmasq_static.conf /etc/dnsmasq_static.conf
 
     # GUI nach Änderungen starten

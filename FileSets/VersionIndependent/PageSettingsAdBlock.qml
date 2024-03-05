@@ -49,7 +49,7 @@ MbPage {
             item.bind: Utils.path(settingsPrefix, "/DefaultGateway")
         }
 
-        MbEditBox {
+        MbEditBoxBox {
             id: dnsServer
             description: qsTr("DNSServer")
             maximumLength: 20

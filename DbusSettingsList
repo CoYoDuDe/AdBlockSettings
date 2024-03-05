@@ -2,6 +2,7 @@
 /Settings/AdBlock/AdListURL,"https://example.com/adlist.txt",,,
 /Settings/AdBlock/UpdateInterval,"weekly","daily","weekly","monthly"
 /Settings/AdBlock/DefaultGateway,"192.168.1.1",,,
+/Settings/AdBlock/DNSServer,"192.168.1.1",,,
 /Settings/AdBlock/IPRangeStart,"192.168.1.100",,,
 /Settings/AdBlock/IPRangeEnd,"192.168.1.200",,,
 /Settings/AdBlock/DHCPEnabled,0,0,1

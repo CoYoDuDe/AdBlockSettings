@@ -59,7 +59,7 @@ perform_installation() {
     # Neue QML-Dateien kopieren, überschreibt vorhandene Dateien
     cp -f /data/AdBlockSettings/FileSets/VersionIndependent/*.qml /opt/victronenergy/gui/qml/
 
-patch /opt/victronenergy/gui/qml/PageSettings.qml < /data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch
+    patch /opt/victronenergy/gui/qml/PageSettings.qml < /data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch
 
     cp -f /data/AdBlockSettings/FileSets/dnsmasq_static.conf /etc/dnsmasq_static.conf
 
@@ -74,7 +74,7 @@ perform_uninstallation() {
     # GUI stoppen, um Änderungen anzuwenden
     svc -d /service/gui
 
-	# symlink aus rc.local zu entfernen
+    # symlink aus rc.local zu entfernen
     remove_symlink_entry_from_rc_local
 	
     # dnsmasq-Starteintrag aus rc.local entfernen

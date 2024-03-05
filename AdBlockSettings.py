@@ -144,6 +144,7 @@ class AdBlockService(dbus.service.Object):
             if self.get_setting("/Settings/AdBlock/DHCPEnabled"):
                 dhcp_config = f"dhcp-range={self.get_setting('/Settings/AdBlock/IPRangeStart')},{self.get_setting('/Settings/AdBlock/IPRangeEnd')},12h\n"
                 dhcp_config += f"dhcp-option=option:router,{self.get_setting('/Settings/AdBlock/DefaultGateway')}\n"
+                dhcp_config += f"dhcp-option=option:dns-server,{self.get_setting('/Settings/AdBlock/DNSServer')}\n"
                 new_config += dhcp_config
             if self.get_setting("/Settings/AdBlock/IPv6Enabled"):
                 new_config += "enable-ra\n"

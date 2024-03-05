@@ -7,38 +7,6 @@ source /data/SetupHelper/CommonResources
 # Installationsverzeichnis festlegen
 ROOT_PATH=/data/AdBlockSettings
 
-# D-Bus-Einstellungspfade und -Servicepfade definieren
-SETTINGS_PREFIX="com.victronenergy.settings/Settings/AdBlock"
-
-# Standardwert für D-Bus-Einstellungen
-DEFAULT_SETTINGS=(
-    "Enabled:0"
-    "AdListURL:https://example.com/adlist.txt"
-    "UpdateInterval:weekly"
-    "IPRangeStart:192.168.1.100"
-    "IPRangeEnd:192.168.1.200"
-    "DefaultGateway:192.168.1.1"
-    "DNSServer:192.168.1.1"
-    "DHCPEnabled:0"
-    "IPv6Enabled:0"
-    "LastKnownHash:"
-    "ApplySettingsTrigger:"
-    "DownloadTrigger:"
-)
-
-# Funktion zum Erstellen von D-Bus-Einstellungspfaden mit Standardwerten
-create_dbus_setting_paths_with_default_values() {
-    for setting in "${DEFAULT_SETTINGS[@]}"; do
-        dbus-send --system --type=method_call --print-reply --dest=com.victronenergy.settings /com/victronenergy/settings com.victronenergy.BusItem.Get | grep "$SETTINGS_PREFIX/$setting" > /dev/null
-        if [ $? -ne 0 ]; then
-            dbus-send --system --type=method_call --print-reply --dest=com.victronenergy.settings /com/victronenergy/settings com.victronenergy.BusItem.CreateDictEntry string:"$SETTINGS_PREFIX/$setting" string:""
-            logMessage "Einstellungspfad $SETTINGS_PREFIX/$setting erstellt."
-        else
-            logMessage "Einstellungspfad $SETTINGS_PREFIX/$setting ist bereits vorhanden."
-        fi
-    done
-}
-
 # Funktion, symlink zu zu rc.local hinzuzufügen
 add_symlink_entry_to_rc_local() {
     local RC_LOCAL_PATH="/data/rc.local"
@@ -77,7 +45,7 @@ remove_dnsmasq_entry_from_rc_local() {
 perform_installation() {
     logMessage "Installation beginnt..."
     # Erstellen Sie D-Bus-Einstellungspfade mit Standardwerten
-    create_dbus_setting_paths_with_default_values
+    addAllDbusSettings
 
     # symlink zu zu rc.local hinzuzufügen
     add_symlink_entry_to_rc_local

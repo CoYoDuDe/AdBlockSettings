@@ -1,10 +1,10 @@
-/Settings/AdBlock/Enabled,0,0,1
-/Settings/AdBlock/AdListURL,"https://example.com/adlist.txt",,,
-/Settings/AdBlock/UpdateInterval,"weekly","daily","weekly","monthly"
-/Settings/AdBlock/DefaultGateway,"192.168.1.1",,,
-/Settings/AdBlock/DNSServer,"192.168.1.1",,,
-/Settings/AdBlock/IPRangeStart,"192.168.1.100",,,
-/Settings/AdBlock/IPRangeEnd,"192.168.1.200",,,
-/Settings/AdBlock/DHCPEnabled,0,0,1
-/Settings/AdBlock/IPv6Enabled,0,0,1
-/Settings/AdBlock/LastKnownHash,,,
+{"path":"/Settings/AdBlock/Enabled", "default":0, "min":0, "max":1}
+{"path":"/Settings/AdBlock/AdListURL", "default":"https://example.com/adlist.txt"}
+{"path":"/Settings/AdBlock/UpdateInterval", "default":"weekly", "min":"daily", "max":"monthly"}
+{"path":"/Settings/AdBlock/DefaultGateway", "default":"192.168.1.1"}
+{"path":"/Settings/AdBlock/DNSServer", "default":"192.168.1.1"}
+{"path":"/Settings/AdBlock/IPRangeStart", "default":"192.168.1.100"}
+{"path":"/Settings/AdBlock/IPRangeEnd", "default":"192.168.1.200"}
+{"path":"/Settings/AdBlock/DHCPEnabled", "default":0, "min":0, "max":1}
+{"path":"/Settings/AdBlock/IPv6Enabled", "default":0, "min":0, "max":1}
+{"path":"/Settings/AdBlock/LastKnownHash", "default":""}

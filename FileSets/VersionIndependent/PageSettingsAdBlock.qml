@@ -44,9 +44,16 @@ MbPage {
 
         MbEditBox {
             id: defaultGatewayBox
-            description: qsTr("Default Gateway")
+            description: qsTr("Default Gateway (Router)")
             maximumLength: 20
             item.bind: Utils.path(settingsPrefix, "/DefaultGateway")
+        }
+
+        MbEditBox {
+            id: dnsServer
+            description: qsTr("DNSServer")
+            maximumLength: 20
+            item.bind: Utils.path(settingsPrefix, "/DNSServer")
         }
 
         MbEditBox {

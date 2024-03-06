@@ -103,7 +103,7 @@ class AdBlockService(dbus.service.Object):
                 parts = line.split()
                 if len(parts) >= 2:
                     domain = parts[1]
-                    converted_line = f"address=/{domain}/0.0.0.0"
+                    converted_line = f"address=/{domain}/#"
                     converted_lines.append(converted_line)
         return converted_lines
 

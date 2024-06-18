@@ -39,9 +39,11 @@ class AdBlockService(dbus.service.Object):
         self.is_configuring = False
         self.is_downloading = False
 
+        # Überprüfung bei jedem Start
+        self.check_gui_and_patch()
+
     def get_setting(self, path):
         try:
-            # Verwenden Sie self.bus anstelle von bus
             item = VeDbusItemImport(self.bus, 'com.victronenergy.settings', path)
             return item.get_value()
         except Exception as e:
@@ -50,7 +52,6 @@ class AdBlockService(dbus.service.Object):
 
     def set_setting(self, path, value):
         try:
-            # Verwenden Sie self.bus anstelle von bus
             item = VeDbusItemExport(self.bus, path, value, writeable=True)
             item.local_set_value(value)
             print(f"Wert für Pfad {path} im D-Bus aktualisiert: {value}")
@@ -76,27 +77,20 @@ class AdBlockService(dbus.service.Object):
     def start_download(self, path, value):
         if value:
             threading.Thread(target=self.update_adblock_list).start()
-            self.dbus_service[path] = False  # Setzt den Trigger zurück
+            self.dbus_service[path] = False
 
     def start_configure(self, path, value):
         if value:
-            # Startet zuerst den Download-Prozess
             threading.Thread(target=self.update_adblock_list).start()
-        
-        # Wartet, bis der Download abgeschlossen ist
             while self.is_downloading:
                 time.sleep(1)
-
-        # Startet dann die Konfiguration
-                threading.Thread(target=self.configure_dnsmasq).start()
-                self.dbus_service[path] = False  # Setzt den Trigger zurück
+            threading.Thread(target=self.configure_dnsmasq).start()
+            self.dbus_service[path] = False
 
     def calculate_hash(self, content):
-        """Berechnet den SHA-256-Hash eines Inhalts."""
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
 
     def convert_to_dnsmasq_format(self, lines):
-        """Konvertiert AdBlock-Listeneinträge in das dnsmasq-Format."""
         converted_lines = []
         for line in lines:
             if line.strip() and not line.startswith("#"):
@@ -108,7 +102,6 @@ class AdBlockService(dbus.service.Object):
         return converted_lines
 
     def update_adblock_list(self):
-        """Lädt die AdBlock-Liste herunter und aktualisiert die lokale Konfigurationsdatei."""
         if not self.is_downloading:
             self.DownloadStarted()
             adblock_list_url = self.get_setting("/Settings/AdBlock/AdListURL")
@@ -134,7 +127,6 @@ class AdBlockService(dbus.service.Object):
                 self.DownloadFinished()
 
     def configure_dnsmasq(self):
-        """Konfiguriert dnsmasq basierend auf den AdBlock-Einstellungen."""
         if not self.is_configuring:
             self.ConfigureDnsmasqStarted()
             new_config = f"conf-file={static_dnsmasq_config_path}\n"
@@ -155,7 +147,6 @@ class AdBlockService(dbus.service.Object):
             self.ConfigureDnsmasqFinished()
 
     def restart_dnsmasq(self):
-        """Startet dnsmasq neu."""
         os.system("/etc/init.d/dnsmasq restart")
         print("dnsmasq neu gestartet.")
 
@@ -163,7 +154,7 @@ class AdBlockService(dbus.service.Object):
         if self.update_interval == "daily":
             self.next_update += timedelta(days=1)
         elif self.update_interval == "weekly":
-            self.next_update += timedelta(days=7)  # Approximation
+            self.next_update += timedelta(days=7)
         elif self.update_interval == "monthly":
             self.next_update += timedelta(days=30)
         print(f"Nächstes Update geplant für {self.next_update}")
@@ -173,9 +164,21 @@ class AdBlockService(dbus.service.Object):
             self.update_adblock_list()
             self.schedule_next_update()
 
-        # Timer neu planen
-        interval = 86400  # Überprüfung jede Minute
+        interval = 86400
         threading.Timer(interval, self.check_for_updates).start()
+
+    def check_gui_and_patch(self):
+        qml_path = "/opt/victronenergy/gui/qml/PageSettingsAdBlock.qml"
+        patch_path = "/opt/victronenergy/gui/qml/PageSettings.qml"
+        patch_source = "/data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch"
+
+        if not os.path.exists(qml_path) or not self.is_patch_applied(patch_path, patch_source):
+            print("GUI-Dateien oder Patch fehlen. Führe Installation durch.")
+            subprocess.run(["/data/AdBlockSettings/setup.sh", "CHECK"])
+
+    def is_patch_applied(self, patch_path, patch_source):
+        result = subprocess.run(["patch", "--dry-run", "--silent", "-f", "-R", patch_path, "-i", patch_source], capture_output=True)
+        return result.returncode == 0
 
 def main():
     bus = dbus.SystemBus()

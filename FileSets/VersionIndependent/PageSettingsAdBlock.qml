@@ -74,28 +74,27 @@ MbPage {
             ]
         }
 
-    MbOK {
-        id: downloadButton
-        description: adBlockDownloading.value ? qsTr("Downloading...") : qsTr("Download Hosts")
-        value: qsTr("Download")
-        onClicked: {
-            adBlockDownloadTrigger.setValue(true);
+        MbOK {
+            id: downloadButton
+            description: adBlockDownloading.value ? qsTr("Downloading...") : qsTr("Download Hosts")
+            value: qsTr("Download")
+            onClicked: {
+                adBlockDownloadTrigger.setValue(true);
+            }
         }
-    }
 
-    MbOK {
-        id: applyButton
-        description: adBlockConfiguring.value ? qsTr("Applying...") : qsTr("Apply Settings")
-        value: qsTr("Apply")
-        onClicked: {
-            adBlockApplySettingsTrigger.setValue(true);
+        MbOK {
+            id: applyButton
+            description: adBlockConfiguring.value ? qsTr("Applying...") : qsTr("Apply Settings")
+            value: qsTr("Apply")
+            onClicked: {
+                adBlockApplySettingsTrigger.setValue(true);
+            }
         }
     }
-}
 
     VBusItem { id: adBlockDownloadTrigger; bind: Utils.path(servicePrefix, "/DownloadTrigger") }
     VBusItem { id: adBlockApplySettingsTrigger; bind: Utils.path(servicePrefix, "/ConfigureTrigger") }
     VBusItem { id: adBlockDownloading; bind: Utils.path(servicePrefix, "/Downloading") }
     VBusItem { id: adBlockConfiguring; bind: Utils.path(servicePrefix, "/Configuring") }
-
 }

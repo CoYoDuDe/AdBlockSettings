@@ -4,10 +4,13 @@
 # Gemeinsame Ressourcen laden
 source /data/SetupHelper/CommonResources
 
+# Standardaktionen aktivieren
+standardPromptAndActions='yes'
+
 # Installationsverzeichnis festlegen
 ROOT_PATH=/data/AdBlockSettings
 
-# Funktion, symlink zu zu rc.local hinzuzufügen
+# Funktion, symlink zu rc.local hinzuzufügen
 add_symlink_entry_to_rc_local() {
     local RC_LOCAL_PATH="/data/rc.local"
     local ENTRY="ln -s /data/AdBlockSettings/service/AdBlockSettings /service/AdBlockSettings"
@@ -41,42 +44,58 @@ remove_dnsmasq_entry_from_rc_local() {
     [ -f "$RC_LOCAL_PATH" ] && sed -i "/^$(echo "$ENTRY" | sed 's/[\/&]/\\&/g')$/d" "$RC_LOCAL_PATH"
 }
 
+# Funktion, um das GUI und den Patch zu überprüfen
+check_gui_and_patch() {
+    local QML_PATH="/opt/victronenergy/gui/qml/PageSettingsAdBlock.qml"
+    local PATCH_PATH="/opt/victronenergy/gui/qml/PageSettings.qml"
+    local PATCH_SOURCE="/data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch"
+
+    if [ ! -f "$QML_PATH" ] || ! grep -q "//////// modified to insert AdBlockSettings menu" "$PATCH_PATH"; then
+        perform_installation
+    fi
+}
+
+# Funktion, um den Patch anzuwenden
+apply_adblock_patch() {
+    local PATCH_PATH="/opt/victronenergy/gui/qml/PageSettings.qml"
+    local PATCH_SOURCE="/data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch"
+
+    if ! grep -q "//////// modified to insert AdBlockSettings menu" "$PATCH_PATH"; then
+        patch "$PATCH_PATH" < "$PATCH_SOURCE"
+    fi
+}
+
 # Installationsroutine
 perform_installation() {
     logMessage "Installation beginnt..."
     # Erstellen Sie D-Bus-Einstellungspfade mit Standardwerten
     addAllDbusSettings
 
-    # symlink zu zu rc.local hinzuzufügen
+    # symlink zu rc.local hinzuzufügen
     add_symlink_entry_to_rc_local
 
     # dnsmasq-Starteintrag zu rc.local hinzufügen
     add_dnsmasq_entry_to_rc_local
 
-    # GUI stoppen, um Änderungen anzuwenden
-    svc -d /service/gui
-
     # Neue QML-Dateien kopieren, überschreibt vorhandene Dateien
     cp -f /data/AdBlockSettings/FileSets/VersionIndependent/*.qml /opt/victronenergy/gui/qml/
 
-    patch /opt/victronenergy/gui/qml/PageSettings.qml < /data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch
+    # Patch anwenden
+    apply_adblock_patch
 
-    cp -f /data/AdBlockSettings/FileSets/dnsmasq_static.conf /etc/dnsmasq_static.conf
+    cp -f /data/AdBlockSettings/FileSets/configs/dnsmasq_static.conf /etc/dnsmasq_static.conf
 
-    # GUI nach Änderungen starten
-    svc -u /service/gui
+    # Variablen für den SetupHelper setzen
+    restartGuiNeeded=true
 }
 
 # Deinstallationsroutine
 perform_uninstallation() {
     logMessage "Deinstallation beginnt..."
 
-    # GUI stoppen, um Änderungen anzuwenden
-    svc -d /service/gui
-
     # symlink aus rc.local zu entfernen
     remove_symlink_entry_from_rc_local
-	
+    
     # dnsmasq-Starteintrag aus rc.local entfernen
     remove_dnsmasq_entry_from_rc_local
 
@@ -89,10 +108,8 @@ perform_uninstallation() {
     # dnsmasq neu starten
     /etc/init.d/dnsmasq restart
 
-    # GUI nach Änderungen neu starten
-    svc -u /service/gui
-
     logMessage "Deinstallation abgeschlossen."
+    restartGuiNeeded=true
 }
 
 # Ausführung basierend auf der angegebenen Aktion
@@ -103,6 +120,9 @@ case "$scriptAction" in
     UNINSTALL)
         perform_uninstallation
         ;;
+    CHECK)
+        check_gui_and_patch
+        ;;
     *)
         logMessage "Unbekannte Aktion: $scriptAction. Beende Skript."
         exit 1
@@ -110,3 +130,6 @@ case "$scriptAction" in
 esac
 
 logMessage "Skriptausführung abgeschlossen."
+
+# Setzen der Statusvariablen für den SetupHelper
+endScript

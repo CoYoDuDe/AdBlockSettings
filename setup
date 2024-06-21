@@ -2,7 +2,7 @@
 # Einrichtungsskript für AdBlockSettings
 
 # Gemeinsame Ressourcen laden
-source /data/SetupHelper/CommonResources
+source "/data/SetupHelper/HelperResources/IncludeHelpers"
 
 # Standardaktionen aktivieren
 standardPromptAndActions='yes'
@@ -50,19 +50,18 @@ check_gui_and_patch() {
     local PATCH_PATH="/opt/victronenergy/gui/qml/PageSettings.qml"
     local PATCH_SOURCE="/data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch"
 
-    if [ ! -f "$QML_PATH" ] || ! grep -q "//////// modified to insert AdBlockSettings menu" "$PATCH_PATH"; then
-        perform_installation
+    if [ ! -f "$QML_PATH" ]; then
+        cp /data/AdBlockSettings/FileSets/PageSettingsAdBlock.qml "$QML_PATH"
+    fi
+
+    if ! grep -q "//////// modified to insert AdBlockSettings menu" "$PATCH_PATH"; then
+        patch "$PATCH_PATH" < "$PATCH_SOURCE"
     fi
 }
 
 # Funktion, um den Patch anzuwenden
 apply_adblock_patch() {
-    local PATCH_PATH="/opt/victronenergy/gui/qml/PageSettings.qml"
-    local PATCH_SOURCE="/data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch"
-
-    if ! grep -q "//////// modified to insert AdBlockSettings menu" "$PATCH_PATH"; then
-        patch "$PATCH_PATH" < "$PATCH_SOURCE"
-    fi
+    check_gui_and_patch
 }
 
 # Installationsroutine

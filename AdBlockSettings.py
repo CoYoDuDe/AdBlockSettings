@@ -47,14 +47,14 @@ class AdBlockService(dbus.service.Object):
             item = VeDbusItemImport(self.bus, 'com.victronenergy.settings', path)
             return item.get_value()
         except Exception as e:
-            print(f"DBus Fehler: {e}")
+            logging.error(f"DBus Fehler: {e}")
             return None
 
     def set_setting(self, path, value):
         try:
             item = VeDbusItemExport(self.bus, path, value, writeable=True)
             item.local_set_value(value)
-            print(f"Wert für Pfad {path} im D-Bus aktualisiert: {value}")
+            logging.info(f"Wert für Pfad {path} im D-Bus aktualisiert: {value}")
         except Exception as e:
             print(f"Fehler beim Aktualisieren des D-Bus Wertes: {e}")
 
@@ -148,7 +148,7 @@ class AdBlockService(dbus.service.Object):
 
     def restart_dnsmasq(self):
         os.system("/etc/init.d/dnsmasq restart")
-        print("dnsmasq neu gestartet.")
+        logging.info("dnsmasq neu gestartet.")
 
     def schedule_next_update(self):
         if self.update_interval == "daily":
@@ -157,7 +157,7 @@ class AdBlockService(dbus.service.Object):
             self.next_update += timedelta(days=7)
         elif self.update_interval == "monthly":
             self.next_update += timedelta(days=30)
-        print(f"Nächstes Update geplant für {self.next_update}")
+        logging.info(f"Nächstes Update geplant für {self.next_update}")
 
     def check_for_updates(self):
         if datetime.now() >= self.next_update and self.adblock_enabled:
@@ -173,8 +173,8 @@ class AdBlockService(dbus.service.Object):
         patch_source = "/data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch"
 
         if not os.path.exists(qml_path) or not self.is_patch_applied(patch_path, patch_source):
-            print("GUI-Dateien oder Patch fehlen. Führe Installation durch.")
-            subprocess.run(["/data/AdBlockSettings/setup.sh", "CHECK"])
+            logging.warning("GUI-Dateien oder Patch fehlen. Führe Installation durch.")
+            subprocess.run(["/data/AdBlockSettings/setup", "CHECK"])
 
     def is_patch_applied(self, patch_path, patch_source):
         result = subprocess.run(["patch", "--dry-run", "--silent", "-f", "-R", patch_path, "-i", patch_source], capture_output=True)

@@ -39,22 +39,19 @@ class AdBlockService(dbus.service.Object):
         self.is_configuring = False
         self.is_downloading = False
 
-        # Überprüfung bei jedem Start
-        self.check_gui_and_patch()
-
     def get_setting(self, path):
         try:
             item = VeDbusItemImport(self.bus, 'com.victronenergy.settings', path)
             return item.get_value()
         except Exception as e:
-            logging.error(f"DBus Fehler: {e}")
+            print(f"DBus Fehler: {e}")
             return None
 
     def set_setting(self, path, value):
         try:
             item = VeDbusItemExport(self.bus, path, value, writeable=True)
             item.local_set_value(value)
-            logging.info(f"Wert für Pfad {path} im D-Bus aktualisiert: {value}")
+            print(f"Wert für Pfad {path} im D-Bus aktualisiert: {value}")
         except Exception as e:
             print(f"Fehler beim Aktualisieren des D-Bus Wertes: {e}")
 
@@ -148,7 +145,7 @@ class AdBlockService(dbus.service.Object):
 
     def restart_dnsmasq(self):
         os.system("/etc/init.d/dnsmasq restart")
-        logging.info("dnsmasq neu gestartet.")
+        print("dnsmasq neu gestartet.")
 
     def schedule_next_update(self):
         if self.update_interval == "daily":
@@ -157,7 +154,7 @@ class AdBlockService(dbus.service.Object):
             self.next_update += timedelta(days=7)
         elif self.update_interval == "monthly":
             self.next_update += timedelta(days=30)
-        logging.info(f"Nächstes Update geplant für {self.next_update}")
+        print(f"Nächstes Update geplant für {self.next_update}")
 
     def check_for_updates(self):
         if datetime.now() >= self.next_update and self.adblock_enabled:
@@ -166,19 +163,6 @@ class AdBlockService(dbus.service.Object):
 
         interval = 86400
         threading.Timer(interval, self.check_for_updates).start()
-
-    def check_gui_and_patch(self):
-        qml_path = "/opt/victronenergy/gui/qml/PageSettingsAdBlock.qml"
-        patch_path = "/opt/victronenergy/gui/qml/PageSettings.qml"
-        patch_source = "/data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch"
-
-        if not os.path.exists(qml_path) or not self.is_patch_applied(patch_path, patch_source):
-            logging.warning("GUI-Dateien oder Patch fehlen. Führe Installation durch.")
-            subprocess.run(["/data/AdBlockSettings/setup", "CHECK"])
-
-    def is_patch_applied(self, patch_path, patch_source):
-        result = subprocess.run(["patch", "--dry-run", "--silent", "-f", "-R", patch_path, "-i", patch_source], capture_output=True)
-        return result.returncode == 0
 
 def main():
     bus = dbus.SystemBus()

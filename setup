@@ -1,8 +1,8 @@
 #!/bin/bash
 # Einrichtungsskript für AdBlockSettings
 
-# Gemeinsame Ressourcen laden
-source /data/SetupHelper/CommonResources
+# Einbinden der Helper-Ressourcen
+source "/data/SetupHelper/HelperResources/IncludeHelpers"
 
 # Standardaktionen aktivieren
 standardPromptAndActions='yes'

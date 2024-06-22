@@ -2,7 +2,7 @@
 # Einrichtungsskript für AdBlockSettings
 
 # Gemeinsame Ressourcen laden
-source "/data/SetupHelper/HelperResources/IncludeHelpers"
+source /data/SetupHelper/CommonResources
 
 # Standardaktionen aktivieren
 standardPromptAndActions='yes'
@@ -44,47 +44,45 @@ remove_dnsmasq_entry_from_rc_local() {
     [ -f "$RC_LOCAL_PATH" ] && sed -i "/^$(echo "$ENTRY" | sed 's/[\/&]/\\&/g')$/d" "$RC_LOCAL_PATH"
 }
 
-# Funktion, um das GUI und den Patch zu überprüfen
-check_gui_and_patch() {
+# Installationsroutine
+perform_installation() {
+    logMessage "Installation beginnt..."
+    addAllDbusSettings
+
+    add_symlink_entry_to_rc_local
+    add_dnsmasq_entry_to_rc_local
+
     local QML_PATH="/opt/victronenergy/gui/qml/PageSettingsAdBlock.qml"
     local PATCH_PATH="/opt/victronenergy/gui/qml/PageSettings.qml"
     local PATCH_SOURCE="/data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch"
 
-    if [ ! -f "$QML_PATH" ]; then
-        cp /data/AdBlockSettings/FileSets/PageSettingsAdBlock.qml "$QML_PATH"
+    if [ -f "$PATCH_SOURCE" ]; then
+        if [ ! -f "$QML_PATH" ] || ! grep -q "//////// modified to insert AdBlockSettings menu" "$PATCH_PATH"; then
+            cp -f /data/AdBlockSettings/FileSets/VersionIndependent/*.qml /opt/victronenergy/gui/qml/
+            patch "$PATCH_PATH" < "$PATCH_SOURCE"
+            logMessage "QML-Dateien und Patch wurden installiert."
+        else
+            logMessage "QML-Dateien und Patch sind bereits aktuell."
+        fi
+    else
+        logMessage "Fehler: Patch-Quelle nicht gefunden."
+        installFailed=true
     fi
 
-    if ! grep -q "//////// modified to insert AdBlockSettings menu" "$PATCH_PATH"; then
-        patch "$PATCH_PATH" < "$PATCH_SOURCE"
+    local DNSMASQ_CONF="/etc/dnsmasq_static.conf"
+    local NEW_DNSMASQ_CONF="/data/AdBlockSettings/FileSets/configs/dnsmasq_static.conf"
+    if [ -f "$NEW_DNSMASQ_CONF" ]; then
+        if ! cmp -s "$NEW_DNSMASQ_CONF" "$DNSMASQ_CONF"; then
+            cp -f "$NEW_DNSMASQ_CONF" "$DNSMASQ_CONF"
+            logMessage "dnsmasq_static.conf wurde aktualisiert."
+        else
+            logMessage "dnsmasq_static.conf ist bereits aktuell."
+        fi
+    else
+        logMessage "Fehler: dnsmasq_static.conf Quelle nicht gefunden."
+        installFailed=true
     fi
-}
 
-# Funktion, um den Patch anzuwenden
-apply_adblock_patch() {
-    check_gui_and_patch
-}
-
-# Installationsroutine
-perform_installation() {
-    logMessage "Installation beginnt..."
-    # Erstellen Sie D-Bus-Einstellungspfade mit Standardwerten
-    addAllDbusSettings
-
-    # symlink zu rc.local hinzuzufügen
-    add_symlink_entry_to_rc_local
-
-    # dnsmasq-Starteintrag zu rc.local hinzufügen
-    add_dnsmasq_entry_to_rc_local
-
-    # Neue QML-Dateien kopieren, überschreibt vorhandene Dateien
-    cp -f /data/AdBlockSettings/FileSets/VersionIndependent/*.qml /opt/victronenergy/gui/qml/
-
-    # Patch anwenden
-    apply_adblock_patch
-
-    cp -f /data/AdBlockSettings/FileSets/configs/dnsmasq_static.conf /etc/dnsmasq_static.conf
-
-    # Variablen für den SetupHelper setzen
     restartGuiNeeded=true
 }
 
@@ -92,35 +90,28 @@ perform_installation() {
 perform_uninstallation() {
     logMessage "Deinstallation beginnt..."
 
-    # symlink aus rc.local zu entfernen
     remove_symlink_entry_from_rc_local
-    
-    # dnsmasq-Starteintrag aus rc.local entfernen
     remove_dnsmasq_entry_from_rc_local
 
-    # Hinzugefügte QML-Dateien von AdBlockSettings entfernen
     rm -f /opt/victronenergy/gui/qml/PageSettingsAdBlock.qml
 
-    # Original dnsmasq.conf wiederherstellen
-    [ -f "/etc/dnsmasq.conf.orig" ] && mv /etc/dnsmasq.conf.orig /etc/dnsmasq.conf
+    local DNSMASQ_CONF="/etc/dnsmasq.conf"
+    if [ -f "${DNSMASQ_CONF}.orig" ]; then
+        mv "${DNSMASQ_CONF}.orig" "$DNSMASQ_CONF"
+    fi
 
-    # dnsmasq neu starten
     /etc/init.d/dnsmasq restart
 
     logMessage "Deinstallation abgeschlossen."
     restartGuiNeeded=true
 }
 
-# Ausführung basierend auf der angegebenen Aktion
 case "$scriptAction" in
-    INSTALL)
+    INSTALL|CHECK)
         perform_installation
         ;;
     UNINSTALL)
         perform_uninstallation
-        ;;
-    CHECK)
-        check_gui_and_patch
         ;;
     *)
         logMessage "Unbekannte Aktion: $scriptAction. Beende Skript."
@@ -129,6 +120,4 @@ case "$scriptAction" in
 esac
 
 logMessage "Skriptausführung abgeschlossen."
-
-# Setzen der Statusvariablen für den SetupHelper
 endScript

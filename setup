@@ -18,25 +18,50 @@ PATCH_SOURCE="${ROOT_PATH}/FileSets/PatchSource/PageSettings.qml.patch"
 DNSMASQ_CONF="/etc/dnsmasq_static.conf"
 NEW_DNSMASQ_CONF="${ROOT_PATH}/FileSets/configs/dnsmasq_static.conf"
 
+# Kompatibilität prüfen
+if [ ! -f /etc/venus/machine ]; then
+    logMessage "Kann den Venus-Gerätetyp nicht bestimmen - Skript wird beendet."
+    setInstallFailed $EXIT_INCOMPATIBLE_PLATFORM "Kann den Venus-Gerätetyp nicht bestimmen."
+fi
+
+machine=$(cat /etc/venus/machine)
+if [[ "$machine" != "raspberrypi2" && "$machine" != "raspberrypi4" ]]; then
+    logMessage "$machine wird nicht unterstützt - Skript wird beendet."
+    setInstallFailed $EXIT_INCOMPATIBLE_PLATFORM "$machine wird nicht unterstützt."
+fi
+
 # Funktionen definieren
+
+## Einträge in rc.local hinzufügen und entfernen
+# Eintrag in rc.local hinzufügen
 add_entry_to_rc_local() {
     local ENTRY="$1"
     [ ! -f "$RC_LOCAL_PATH" ] && echo "$ENTRY" > "$RC_LOCAL_PATH" || [ ! "$(grep "$ENTRY" "$RC_LOCAL_PATH")" ] && echo "$ENTRY" >> "$RC_LOCAL_PATH"
     chmod +x "$RC_LOCAL_PATH"
 }
 
+# Eintrag aus rc.local entfernen
 remove_entry_from_rc_local() {
     local ENTRY="$1"
     [ -f "$RC_LOCAL_PATH" ] && sed -i "/^$(echo "$ENTRY" | sed 's/[\/&]/\\&/g')$/d" "$RC_LOCAL_PATH"
 }
 
-install_config() {
-    logMessage "Installation beginnt..."
-    addAllDbusSettings
-
+## rc.local-Einträge installieren und entfernen
+# Einträge in rc.local hinzufügen
+install_rc_local_entries() {
     add_entry_to_rc_local "ln -s ${ROOT_PATH}/service/AdBlockSettings /service/AdBlockSettings"
     add_entry_to_rc_local "/etc/init.d/dnsmasq start"
+}
 
+# Einträge aus rc.local entfernen
+uninstall_rc_local_entries() {
+    remove_entry_from_rc_local "ln -s ${ROOT_PATH}/service/AdBlockSettings /service/AdBlockSettings"
+    remove_entry_from_rc_local "/etc/init.d/dnsmasq start"
+}
+
+## QML-Dateien und Patch installieren und deinstallieren
+# QML-Dateien und Patch installieren
+install_qml_files_and_patch() {
     if [ -f "$PATCH_SOURCE" ]; then
         if [ ! -f "$QML_PATH" ] || ! grep -q "//////// modified to insert AdBlockSettings menu" "$PATCH_PATH"; then
             cp -f "${ROOT_PATH}/FileSets/VersionIndependent/*.qml" /opt/victronenergy/gui/qml/
@@ -49,7 +74,20 @@ install_config() {
         logMessage "Fehler: Patch-Quelle nicht gefunden."
         setInstallFailed $EXIT_FILE_SET_ERROR "Fehler: Patch-Quelle nicht gefunden."
     fi
+}
 
+# QML-Dateien und Patch deinstallieren
+uninstall_qml_files_and_patch() {
+    rm -f /opt/victronenergy/gui/qml/PageSettingsAdBlock.qml
+    if [ -f "${PATCH_PATH}.orig" ]; then
+        mv "${PATCH_PATH}.orig" "$PATCH_PATH"
+    fi
+    logMessage "QML-Dateien und Patch deinstalliert."
+}
+
+## dnsmasq-Konfiguration installieren und deinstallieren
+# dnsmasq-Konfiguration installieren
+install_dnsmasq_config() {
     if [ -f "$NEW_DNSMASQ_CONF" ]; then
         if ! cmp -s "$NEW_DNSMASQ_CONF" "$DNSMASQ_CONF"; then
             cp -f "$NEW_DNSMASQ_CONF" "$DNSMASQ_CONF"
@@ -61,34 +99,40 @@ install_config() {
         logMessage "Fehler: dnsmasq_static.conf Quelle nicht gefunden."
         setInstallFailed $EXIT_FILE_SET_ERROR "Fehler: dnsmasq_static.conf Quelle nicht gefunden."
     fi
-
-    restartGuiNeeded=true
 }
 
-uninstall() {
-    logMessage "Deinstallation beginnt..."
-
-    remove_entry_from_rc_local "ln -s ${ROOT_PATH}/service/AdBlockSettings /service/AdBlockSettings"
-    remove_entry_from_rc_local "/etc/init.d/dnsmasq start"
-
-    rm -f /opt/victronenergy/gui/qml/PageSettingsAdBlock.qml
-
+# dnsmasq-Konfiguration deinstallieren
+uninstall_dnsmasq_config() {
     if [ -f "${DNSMASQ_CONF}.orig" ]; then
         mv "${DNSMASQ_CONF}.orig" "$DNSMASQ_CONF"
     fi
-
     /etc/init.d/dnsmasq restart
+    logMessage "dnsmasq-Konfiguration deinstalliert."
+}
 
-    logMessage "Deinstallation abgeschlossen."
-    restartGuiNeeded=true
+## D-Bus-Einstellungen installieren und deinstallieren
+# D-Bus-Einstellungen installieren
+install_dbus_settings() {
+    addAllDbusSettings
+}
+
+# D-Bus-Einstellungen deinstallieren
+uninstall_dbus_settings() {
+    removeAllDbusSettings
 }
 
 case "$scriptAction" in
     INSTALL|CHECK)
-        install_config
+        install_rc_local_entries
+        install_qml_files_and_patch
+        install_dnsmasq_config
+        install_dbus_settings
         ;;
     UNINSTALL)
-        uninstall
+        uninstall_rc_local_entries
+        uninstall_qml_files_and_patch
+        uninstall_dnsmasq_config
+        uninstall_dbus_settings
         ;;
     *)
         logMessage "Unbekannte Aktion: $scriptAction. Beende Skript."

@@ -47,7 +47,7 @@ install_config() {
         fi
     else
         logMessage "Fehler: Patch-Quelle nicht gefunden."
-        installFailed=true
+        setInstallFailed $EXIT_FILE_SET_ERROR "Fehler: Patch-Quelle nicht gefunden."
     fi
 
     if [ -f "$NEW_DNSMASQ_CONF" ]; then
@@ -59,7 +59,7 @@ install_config() {
         fi
     else
         logMessage "Fehler: dnsmasq_static.conf Quelle nicht gefunden."
-        installFailed=true
+        setInstallFailed $EXIT_FILE_SET_ERROR "Fehler: dnsmasq_static.conf Quelle nicht gefunden."
     fi
 
     restartGuiNeeded=true

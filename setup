@@ -135,8 +135,11 @@ case "$scriptAction" in
         uninstall_dbus_settings
         ;;
     *)
-        logMessage "Unbekannte Aktion: $scriptAction. Beende Skript."
-        exit 1
+        logMessage "Keine spezifische Aktion angegeben. Führe Standardinstallation durch..."
+        install_rc_local_entries
+        install_qml_files_and_patch
+        install_dnsmasq_config
+        install_dbus_settings
         ;;
 esac
 

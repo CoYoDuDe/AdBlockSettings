@@ -19,13 +19,13 @@ DNSMASQ_CONF="/etc/dnsmasq_static.conf"
 NEW_DNSMASQ_CONF="${ROOT_PATH}/FileSets/configs/dnsmasq_static.conf"
 
 # Kompatibilität prüfen
-if [ ! -f /etc/venus/machine ]; then
+if [ ! -f /etc/venus/machine ]; dann
     logMessage "Kann den Venus-Gerätetyp nicht bestimmen - Skript wird beendet."
     setInstallFailed $EXIT_INCOMPATIBLE_PLATFORM "Kann den Venus-Gerätetyp nicht bestimmen."
 fi
 
 machine=$(cat /etc/venus/machine)
-if [[ "$machine" != "raspberrypi2" && "$machine" != "raspberrypi4" ]]; then
+if [[ "$machine" != "raspberrypi2" && "$machine" != "raspberrypi4" ]]; dann
     logMessage "$machine wird nicht unterstützt - Skript wird beendet."
     setInstallFailed $EXIT_INCOMPATIBLE_PLATFORM "$machine wird nicht unterstützt."
 fi
@@ -36,7 +36,13 @@ fi
 # Eintrag in rc.local hinzufügen
 add_entry_to_rc_local() {
     local ENTRY="$1"
-    [ ! -f "$RC_LOCAL_PATH" ] && echo "$ENTRY" > "$RC_LOCAL_PATH" || [ ! "$(grep "$ENTRY" "$RC_LOCAL_PATH")" ] && echo "$ENTRY" >> "$RC_LOCAL_PATH"
+    if [ ! -f "$RC_LOCAL_PATH" ]; dann
+        echo "$ENTRY" > "$RC_LOCAL_PATH"
+    else
+        if ! grep -qF "$ENTRY" "$RC_LOCAL_PATH"; dann
+            echo "$ENTRY" >> "$RC_LOCAL_PATH"
+        fi
+    fi
     chmod +x "$RC_LOCAL_PATH"
 }
 
@@ -62,9 +68,9 @@ uninstall_rc_local_entries() {
 ## QML-Dateien und Patch installieren und deinstallieren
 # QML-Dateien und Patch installieren
 install_qml_files_and_patch() {
-    if [ -f "$PATCH_SOURCE" ]; then
+    if [ -f "$PATCH_SOURCE" ]; dann
         # Überprüfen, ob die QML-Dateien bereits vorhanden sind
-        if [ ! -f "$QML_PATH" ]; then
+        if [ ! -f "$QML_PATH" ]; dann
             logMessage "Kopiere QML-Dateien..."
             cp -f "${ROOT_PATH}/FileSets/VersionIndependent/*.qml" /opt/victronenergy/gui/qml/
             logMessage "QML-Dateien wurden kopiert."
@@ -72,7 +78,7 @@ install_qml_files_and_patch() {
             logMessage "QML-Dateien sind bereits vorhanden."
         fi
         # Überprüfen, ob der Patch bereits angewendet wurde
-        if ! grep -q "//////// modified to insert AdBlockSettings menu" "$PATCH_PATH"; then
+        if ! grep -q "//////// modified to insert AdBlockSettings menu" "$PATCH_PATH"; dann
             logMessage "Wende Patch an..."
             patch "$PATCH_PATH" < "$PATCH_SOURCE"
             logMessage "QML-Dateien und Patch wurden installiert."
@@ -88,7 +94,7 @@ install_qml_files_and_patch() {
 # QML-Dateien und Patch deinstallieren
 uninstall_qml_files_and_patch() {
     rm -f /opt/victronenergy/gui/qml/PageSettingsAdBlock.qml
-    if [ -f "${PATCH_PATH}.orig" ]; then
+    if [ -f "${PATCH_PATH}.orig" ]; dann
         mv "${PATCH_PATH}.orig" "$PATCH_PATH"
     fi
     logMessage "QML-Dateien und Patch deinstalliert."
@@ -97,8 +103,8 @@ uninstall_qml_files_and_patch() {
 ## dnsmasq-Konfiguration installieren und deinstallieren
 # dnsmasq-Konfiguration installieren
 install_dnsmasq_config() {
-    if [ -f "$NEW_DNSMASQ_CONF" ]; then
-        if ! cmp -s "$NEW_DNSMASQ_CONF" "$DNSMASQ_CONF"; then
+    if [ -f "$NEW_DNSMASQ_CONF" ]; dann
+        if ! cmp -s "$NEW_DNSMASQ_CONF" "$DNSMASQ_CONF"; dann
             cp -f "$NEW_DNSMASQ_CONF" "$DNSMASQ_CONF"
             logMessage "dnsmasq_static.conf wurde aktualisiert."
         else
@@ -112,7 +118,7 @@ install_dnsmasq_config() {
 
 # dnsmasq-Konfiguration deinstallieren
 uninstall_dnsmasq_config() {
-    if [ -f "${DNSMASQ_CONF}.orig" ]; then
+    if [ -f "${DNSMASQ_CONF}.orig" ]; dann
         mv "${DNSMASQ_CONF}.orig" "$DNSMASQ_CONF"
     fi
     /etc/init.d/dnsmasq restart

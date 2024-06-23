@@ -1,6 +1,6 @@
 #!/bin/bash
-# Einrichtungsskript für AdBlockSettings
 
+# Einrichtungsskript für AdBlockSettings
 # Einbinden der Helper-Ressourcen
 source "/data/SetupHelper/HelperResources/IncludeHelpers"
 
@@ -10,55 +10,36 @@ standardPromptAndActions='yes'
 # Installationsverzeichnis festlegen
 ROOT_PATH=/data/AdBlockSettings
 
-# Funktion, symlink zu rc.local hinzuzufügen
-add_symlink_entry_to_rc_local() {
-    local RC_LOCAL_PATH="/data/rc.local"
-    local ENTRY="ln -s /data/AdBlockSettings/service/AdBlockSettings /service/AdBlockSettings"
+# Pfaddefinitionen
+RC_LOCAL_PATH="/data/rc.local"
+QML_PATH="/opt/victronenergy/gui/qml/PageSettingsAdBlock.qml"
+PATCH_PATH="/opt/victronenergy/gui/qml/PageSettings.qml"
+PATCH_SOURCE="${ROOT_PATH}/FileSets/PatchSource/PageSettings.qml.patch"
+DNSMASQ_CONF="/etc/dnsmasq_static.conf"
+NEW_DNSMASQ_CONF="${ROOT_PATH}/FileSets/configs/dnsmasq_static.conf"
 
+# Funktionen definieren
+add_entry_to_rc_local() {
+    local ENTRY="$1"
     [ ! -f "$RC_LOCAL_PATH" ] && echo "$ENTRY" > "$RC_LOCAL_PATH" || [ ! "$(grep "$ENTRY" "$RC_LOCAL_PATH")" ] && echo "$ENTRY" >> "$RC_LOCAL_PATH"
     chmod +x "$RC_LOCAL_PATH"
 }
 
-# Funktion, symlink aus rc.local zu entfernen
-remove_symlink_entry_from_rc_local() {
-    local RC_LOCAL_PATH="/data/rc.local"
-    local ENTRY="ln -s /data/AdBlockSettings/service/AdBlockSettings /service/AdBlockSettings"
-
+remove_entry_from_rc_local() {
+    local ENTRY="$1"
     [ -f "$RC_LOCAL_PATH" ] && sed -i "/^$(echo "$ENTRY" | sed 's/[\/&]/\\&/g')$/d" "$RC_LOCAL_PATH"
 }
 
-# Funktion, um den dnsmasq-Starteintrag zu rc.local hinzuzufügen
-add_dnsmasq_entry_to_rc_local() {
-    local RC_LOCAL_PATH="/data/rc.local"
-    local ENTRY="/etc/init.d/dnsmasq start"
-
-    [ ! -f "$RC_LOCAL_PATH" ] && echo "$ENTRY" > "$RC_LOCAL_PATH" || [ ! "$(grep "$ENTRY" "$RC_LOCAL_PATH")" ] && echo "$ENTRY" >> "$RC_LOCAL_PATH"
-    chmod +x "$RC_LOCAL_PATH"
-}
-
-# Funktion, um den dnsmasq-Starteintrag aus rc.local zu entfernen
-remove_dnsmasq_entry_from_rc_local() {
-    local RC_LOCAL_PATH="/data/rc.local"
-    local ENTRY="/etc/init.d/dnsmasq start"
-
-    [ -f "$RC_LOCAL_PATH" ] && sed -i "/^$(echo "$ENTRY" | sed 's/[\/&]/\\&/g')$/d" "$RC_LOCAL_PATH"
-}
-
-# Installationsroutine
-perform_installation() {
+install_config() {
     logMessage "Installation beginnt..."
     addAllDbusSettings
 
-    add_symlink_entry_to_rc_local
-    add_dnsmasq_entry_to_rc_local
-
-    local QML_PATH="/opt/victronenergy/gui/qml/PageSettingsAdBlock.qml"
-    local PATCH_PATH="/opt/victronenergy/gui/qml/PageSettings.qml"
-    local PATCH_SOURCE="/data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.patch"
+    add_entry_to_rc_local "ln -s ${ROOT_PATH}/service/AdBlockSettings /service/AdBlockSettings"
+    add_entry_to_rc_local "/etc/init.d/dnsmasq start"
 
     if [ -f "$PATCH_SOURCE" ]; then
         if [ ! -f "$QML_PATH" ] || ! grep -q "//////// modified to insert AdBlockSettings menu" "$PATCH_PATH"; then
-            cp -f /data/AdBlockSettings/FileSets/VersionIndependent/*.qml /opt/victronenergy/gui/qml/
+            cp -f "${ROOT_PATH}/FileSets/VersionIndependent/*.qml" /opt/victronenergy/gui/qml/
             patch "$PATCH_PATH" < "$PATCH_SOURCE"
             logMessage "QML-Dateien und Patch wurden installiert."
         else
@@ -69,8 +50,6 @@ perform_installation() {
         installFailed=true
     fi
 
-    local DNSMASQ_CONF="/etc/dnsmasq_static.conf"
-    local NEW_DNSMASQ_CONF="/data/AdBlockSettings/FileSets/configs/dnsmasq_static.conf"
     if [ -f "$NEW_DNSMASQ_CONF" ]; then
         if ! cmp -s "$NEW_DNSMASQ_CONF" "$DNSMASQ_CONF"; then
             cp -f "$NEW_DNSMASQ_CONF" "$DNSMASQ_CONF"
@@ -86,16 +65,14 @@ perform_installation() {
     restartGuiNeeded=true
 }
 
-# Deinstallationsroutine
-perform_uninstallation() {
+uninstall() {
     logMessage "Deinstallation beginnt..."
 
-    remove_symlink_entry_from_rc_local
-    remove_dnsmasq_entry_from_rc_local
+    remove_entry_from_rc_local "ln -s ${ROOT_PATH}/service/AdBlockSettings /service/AdBlockSettings"
+    remove_entry_from_rc_local "/etc/init.d/dnsmasq start"
 
     rm -f /opt/victronenergy/gui/qml/PageSettingsAdBlock.qml
 
-    local DNSMASQ_CONF="/etc/dnsmasq.conf"
     if [ -f "${DNSMASQ_CONF}.orig" ]; then
         mv "${DNSMASQ_CONF}.orig" "$DNSMASQ_CONF"
     fi
@@ -108,10 +85,10 @@ perform_uninstallation() {
 
 case "$scriptAction" in
     INSTALL|CHECK)
-        perform_installation
+        install_config
         ;;
     UNINSTALL)
-        perform_uninstallation
+        uninstall
         ;;
     *)
         logMessage "Unbekannte Aktion: $scriptAction. Beende Skript."

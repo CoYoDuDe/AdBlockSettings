@@ -46,6 +46,10 @@ class AdBlockService(dbus.service.Object):
         self.download_lock = threading.Lock()
         self.configure_lock = threading.Lock()
 
+        self.next_update = datetime.now()
+        self.update_interval = self.get_setting("/Settings/AdBlock/UpdateInterval")
+        self.adblock_enabled = self.get_setting("/Settings/AdBlock/Enabled")
+
         if not os.path.exists(backup_dnsmasq_config_path):
             shutil.copy(dnsmasq_config_path, backup_dnsmasq_config_path)
 
@@ -181,9 +185,4 @@ class AdBlockService(dbus.service.Object):
         threading.Timer(interval, self.check_for_updates).start()
 
 def main():
-    bus = dbus.SystemBus()
-    service = AdBlockService(bus)
-    GLib.MainLoop().run()
-
-if __name__ == "__main__":
-    main()
+    bus = dbus.System

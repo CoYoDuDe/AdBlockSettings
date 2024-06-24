@@ -42,10 +42,10 @@ fi
 # Eintrag in rc.local hinzufügen
 add_entry_to_rc_local() {
     local ENTRY="$1"
-    if [ ! -f "$RC_LOCAL_FILE" ]; then
+    if [ ! -f "$RC_LOCAL_FILE" ]; dann
         echo "$ENTRY" > "$RC_LOCAL_FILE"
     else
-        if ! grep -qF "$ENTRY" "$RC_LOCAL_FILE"; then
+        if ! grep -qF "$ENTRY" "$RC_LOCAL_FILE"; dann
             echo "$ENTRY" >> "$RC_LOCAL_FILE"
         fi
     fi
@@ -64,7 +64,7 @@ backup_originals() {
     logMessage "Sichere Originaldateien..."
     backupFile "$STATIC_CONFIG_FILE" "$BACKUP_STATIC_CONFIG_FILE"
     backupFile "$RC_LOCAL_FILE" "$RC_LOCAL_BACKUP"
-    if [ -d "$QML_DIR" ]; then
+    if [ -d "$QML_DIR" ]; dann
         cp -r "$QML_DIR" "$QML_BACKUP_DIR"
         logMessage "QML-Dateien gesichert."
     fi
@@ -75,7 +75,7 @@ restore_originals() {
     logMessage "Stelle Originaldateien wieder her..."
     restoreFile "$BACKUP_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"
     restoreFile "$RC_LOCAL_BACKUP" "$RC_LOCAL_FILE"
-    if [ -d "$QML_BACKUP_DIR" ]; then
+    if [ -d "$QML_BACKUP_DIR" ]; dann
         rm -rf "$QML_DIR"
         mv "$QML_BACKUP_DIR" "$QML_DIR"
         logMessage "QML-Dateien wiederhergestellt."
@@ -86,8 +86,8 @@ restore_originals() {
 # Konfigurationsdateien installieren
 install_config() {
     logMessage "Installiere dnsmasq_static.conf..."
-    if [ -f "$SOURCE_STATIC_CONFIG_FILE" ]; then
-        if ! cmp -s "$SOURCE_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"; then
+    if [ -f "$SOURCE_STATIC_CONFIG_FILE" ]; dann
+        if ! cmp -s "$SOURCE_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"; dann
             cp "$SOURCE_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"
             logMessage "dnsmasq_static.conf erfolgreich installiert."
             filesUpdated=true
@@ -111,7 +111,7 @@ uninstall_config() {
 # QML-Dateien kopieren
 install_qml_files() {
     logMessage "Kopiere QML-Dateien..."
-    if [ -f "$SOURCE_QML_FILE" ]; then
+    if [ -f "$SOURCE_QML_FILE" ]; dann
         cp "$SOURCE_QML_FILE" "$QML_DIR"
         logMessage "QML-Datei erfolgreich kopiert."
     else
@@ -123,7 +123,7 @@ install_qml_files() {
 # QML-Dateien entfernen
 uninstall_qml_files() {
     logMessage "Entferne QML-Dateien..."
-    if [ -f "$SOURCE_QML_FILE" ]; then
+    if [ -f "$SOURCE_QML_FILE" ]; dann
         filename=$(basename "$SOURCE_QML_FILE")
         [ -f "$QML_DIR/$filename" ] && rm -f "$QML_DIR/$filename"
         logMessage "QML-Datei entfernt."
@@ -136,8 +136,8 @@ uninstall_qml_files() {
 # Patch anwenden
 apply_patch() {
     logMessage "Wende Patch an..."
-    if [ -f "$PATCH_FILE" ]; then
-        patch -N "$QML_DIR/PageSettings.qml" "$PATCH_FILE"
+    if [ -f "$PATCH_FILE" ]; dann
+        patch -N "$QML_DIR/PageSettings.qml" < "$PATCH_FILE"
         logMessage "Patch erfolgreich angewendet."
     else
         logMessage "Fehler: Patch-Datei nicht gefunden."
@@ -148,8 +148,8 @@ apply_patch() {
 # Patch entfernen
 remove_patch() {
     logMessage "Entferne Patch..."
-    if [ -f "$PATCH_FILE" ]; then
-        patch -R "$QML_DIR/PageSettings.qml" "$PATCH_FILE"
+    if [ -f "$PATCH_FILE" ]; dann
+        patch -R "$QML_DIR/PageSettings.qml" < "$PATCH_FILE"
         logMessage "Patch erfolgreich entfernt."
     else
         logMessage "Fehler: Patch-Datei nicht gefunden."

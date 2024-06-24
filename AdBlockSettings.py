@@ -13,7 +13,8 @@ import subprocess
 import time
 from datetime import datetime, timedelta
 import threading
-
+import logging
+import shutil
 from gi.repository import GLib
 
 sys.path.insert(1, '/opt/victronenergy/dbus-systemcalc-py/ext/velib_python')
@@ -24,6 +25,10 @@ DBusGMainLoop(set_as_default=True)
 local_file_path = '/etc/dnsmasq.d/adblock.conf'
 dnsmasq_config_path = "/etc/dnsmasq.conf"
 static_dnsmasq_config_path = "/etc/dnsmasq_static.conf"
+backup_dnsmasq_config_path = dnsmasq_config_path + ".bak"
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class AdBlockService(dbus.service.Object):
     def __init__(self, bus):
@@ -38,22 +43,27 @@ class AdBlockService(dbus.service.Object):
 
         self.is_configuring = False
         self.is_downloading = False
+        self.download_lock = threading.Lock()
+        self.configure_lock = threading.Lock()
+
+        if not os.path.exists(backup_dnsmasq_config_path):
+            shutil.copy(dnsmasq_config_path, backup_dnsmasq_config_path)
 
     def get_setting(self, path):
         try:
             item = VeDbusItemImport(self.bus, 'com.victronenergy.settings', path)
             return item.get_value()
         except Exception as e:
-            print(f"DBus Fehler: {e}")
+            logger.error(f"DBus Fehler: {e}")
             return None
 
     def set_setting(self, path, value):
         try:
             item = VeDbusItemExport(self.bus, path, value, writeable=True)
             item.local_set_value(value)
-            print(f"Wert für Pfad {path} im D-Bus aktualisiert: {value}")
+            logger.info(f"Wert für Pfad {path} im D-Bus aktualisiert: {value}")
         except Exception as e:
-            print(f"Fehler beim Aktualisieren des D-Bus Wertes: {e}")
+            logger.error(f"Fehler beim Aktualisieren des D-Bus Wertes: {e}")
 
     def DownloadStarted(self):
         self.is_downloading = True
@@ -100,52 +110,58 @@ class AdBlockService(dbus.service.Object):
 
     def update_adblock_list(self):
         if not self.is_downloading:
-            self.DownloadStarted()
-            adblock_list_url = self.get_setting("/Settings/AdBlock/AdListURL")
-            last_known_hash = self.get_setting("/Settings/AdBlock/LastKnownHash")
+            with self.download_lock:
+                self.DownloadStarted()
+                adblock_list_url = self.get_setting("/Settings/AdBlock/AdListURL")
+                last_known_hash = self.get_setting("/Settings/AdBlock/LastKnownHash")
 
-            try:
-                response = requests.get(adblock_list_url, timeout=10)
-                if response.status_code == 200:
+                try:
+                    response = requests.get(adblock_list_url, timeout=10)
+                    response.raise_for_status()
                     current_hash = self.calculate_hash(response.text)
                     if current_hash != last_known_hash:
                         converted_list = self.convert_to_dnsmasq_format(response.text.splitlines())
                         with open(local_file_path, 'w') as file:
                             file.write("\n".join(converted_list))
                         self.set_setting("/Settings/AdBlock/LastKnownHash", current_hash)
-                        print("AdBlock-Liste aktualisiert.")
+                        logger.info("AdBlock-Liste aktualisiert.")
                     else:
-                        print("Keine Änderungen in der AdBlock-Liste.")
-                else:
-                    print(f"Fehler beim Download: HTTP {response.status_code}")
-            except requests.RequestException as e:
-                print(f"Download fehlgeschlagen: {e}")
-            finally:
-                self.DownloadFinished()
+                        logger.info("Keine Änderungen in der AdBlock-Liste.")
+                except requests.exceptions.HTTPError as http_err:
+                    logger.error(f"HTTP Fehler: {http_err}")
+                except requests.exceptions.ConnectionError as conn_err:
+                    logger.error(f"Verbindungsfehler: {conn_err}")
+                except requests.exceptions.Timeout as timeout_err:
+                    logger.error(f"Timeout Fehler: {timeout_err}")
+                except requests.exceptions.RequestException as req_err:
+                    logger.error(f"Allgemeiner Fehler: {req_err}")
+                finally:
+                    self.DownloadFinished()
 
     def configure_dnsmasq(self):
         if not self.is_configuring:
-            self.ConfigureDnsmasqStarted()
-            new_config = f"conf-file={static_dnsmasq_config_path}\n"
+            with self.configure_lock:
+                self.ConfigureDnsmasqStarted()
+                new_config = f"conf-file={static_dnsmasq_config_path}\n"
 
-            if self.get_setting("/Settings/AdBlock/Enabled"):
-                new_config += f"conf-file={local_file_path}\n"
-            if self.get_setting("/Settings/AdBlock/DHCPEnabled"):
-                dhcp_config = f"dhcp-range={self.get_setting('/Settings/AdBlock/IPRangeStart')},{self.get_setting('/Settings/AdBlock/IPRangeEnd')},12h\n"
-                dhcp_config += f"dhcp-option=option:router,{self.get_setting('/Settings/AdBlock/DefaultGateway')}\n"
-                dhcp_config += f"dhcp-option=option:dns-server,{self.get_setting('/Settings/AdBlock/DNSServer')}\n"
-                new_config += dhcp_config
-            if self.get_setting("/Settings/AdBlock/IPv6Enabled"):
-                new_config += "enable-ra\n"
+                if self.get_setting("/Settings/AdBlock/Enabled"):
+                    new_config += f"conf-file={local_file_path}\n"
+                if self.get_setting("/Settings/AdBlock/DHCPEnabled"):
+                    dhcp_config = f"dhcp-range={self.get_setting('/Settings/AdBlock/IPRangeStart')},{self.get_setting('/Settings/AdBlock/IPRangeEnd')},12h\n"
+                    dhcp_config += f"dhcp-option=option:router,{self.get_setting('/Settings/AdBlock/DefaultGateway')}\n"
+                    dhcp_config += f"dhcp-option=option:dns-server,{self.get_setting('/Settings/AdBlock/DNSServer')}\n"
+                    new_config += dhcp_config
+                if self.get_setting("/Settings/AdBlock/IPv6Enabled"):
+                    new_config += "enable-ra\n"
 
-            with open(dnsmasq_config_path, 'w') as file:
-                file.write(new_config)
-            self.restart_dnsmasq()
-            self.ConfigureDnsmasqFinished()
+                with open(dnsmasq_config_path, 'w') as file:
+                    file.write(new_config)
+                self.restart_dnsmasq()
+                self.ConfigureDnsmasqFinished()
 
     def restart_dnsmasq(self):
         os.system("/etc/init.d/dnsmasq restart")
-        print("dnsmasq neu gestartet.")
+        logger.info("dnsmasq neu gestartet.")
 
     def schedule_next_update(self):
         if self.update_interval == "daily":
@@ -154,7 +170,7 @@ class AdBlockService(dbus.service.Object):
             self.next_update += timedelta(days=7)
         elif self.update_interval == "monthly":
             self.next_update += timedelta(days=30)
-        print(f"Nächstes Update geplant für {self.next_update}")
+        logger.info(f"Nächstes Update geplant für {self.next_update}")
 
     def check_for_updates(self):
         if datetime.now() >= self.next_update and self.adblock_enabled:

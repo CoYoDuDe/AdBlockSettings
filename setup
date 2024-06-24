@@ -12,11 +12,14 @@ ROOT_PATH=/data/AdBlockSettings
 
 # Pfaddefinitionen
 STATIC_CONFIG_FILE="/etc/dnsmasq_static.conf"
-SOURCE_STATIC_CONFIG_FILE="${ROOT_PATH}/FileSets/configs/dnsmasq_static.conf"
+SOURCE_STATIC_CONFIG_FILE="${ROOT_PATH}/FileSets/VersionIndependent/dnsmasq_static.conf"
 BACKUP_STATIC_CONFIG_FILE="${STATIC_CONFIG_FILE}.orig"
 RC_LOCAL_FILE="/data/rc.local"
 RC_LOCAL_BACKUP="/data/rc.local.orig"
 RC_LOCAL_CONTENT="service dnsmasq restart"
+QML_DIR="/opt/victronenergy/gui/qml"
+QML_BACKUP_DIR="/opt/victronenergy/gui/qml_backup"
+SOURCE_QML_FILE="${ROOT_PATH}/FileSets/VersionIndependent/PageSettingsAdBlock.qml"
 
 # Kompatibilität prüfen
 if [ ! -f /etc/venus/machine ]; then
@@ -58,6 +61,10 @@ backup_originals() {
     logMessage "Sichere Originaldateien..."
     backupFile "$STATIC_CONFIG_FILE" "$BACKUP_STATIC_CONFIG_FILE"
     backupFile "$RC_LOCAL_FILE" "$RC_LOCAL_BACKUP"
+    if [ -d "$QML_DIR" ]; then
+        cp -r "$QML_DIR" "$QML_BACKUP_DIR"
+        logMessage "QML-Dateien gesichert."
+    fi
 }
 
 # Originaldateien wiederherstellen
@@ -65,6 +72,11 @@ restore_originals() {
     logMessage "Stelle Originaldateien wieder her..."
     restoreFile "$BACKUP_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"
     restoreFile "$RC_LOCAL_BACKUP" "$RC_LOCAL_FILE"
+    if [ -d "$QML_BACKUP_DIR" ]; then
+        rm -rf "$QML_DIR"
+        mv "$QML_BACKUP_DIR" "$QML_DIR"
+        logMessage "QML-Dateien wiederhergestellt."
+    fi
 }
 
 ## Konfigurationsdateien installieren und deinstallieren
@@ -92,6 +104,31 @@ uninstall_config() {
     logMessage "dnsmasq_static.conf entfernt."
 }
 
+## QML-Dateien kopieren und entfernen
+# QML-Dateien kopieren
+install_qml_files() {
+    logMessage "Kopiere QML-Dateien..."
+    if [ -f "$SOURCE_QML_FILE" ]; then
+        cp "$SOURCE_QML_FILE" "$QML_DIR"
+        logMessage "QML-Datei erfolgreich kopiert."
+    else
+        logMessage "Fehler: QML-Quelle nicht gefunden."
+        setInstallFailed $EXIT_FILE_SET_ERROR "Fehler: QML-Quelle nicht gefunden."
+    fi
+}
+
+# QML-Dateien entfernen
+uninstall_qml_files() {
+    logMessage "Entferne QML-Dateien..."
+    if [ -f "$SOURCE_QML_FILE" ]; then
+        filename=$(basename "$SOURCE_QML_FILE")
+        [ -f "$QML_DIR/$filename" ] && rm -f "$QML_DIR/$filename"
+        logMessage "QML-Datei entfernt."
+    else
+        logMessage "Fehler: QML-Quelle nicht gefunden."
+    fi
+}
+
 ## rc.local einrichten und zurücksetzen
 # rc.local einrichten
 setup_rc_local() {
@@ -109,17 +146,20 @@ case "$scriptAction" in
     INSTALL|CHECK)
         backup_originals
         install_config
+        install_qml_files
         setup_rc_local
         ;;
     UNINSTALL)
         restore_originals
         uninstall_config
+        uninstall_qml_files
         reset_rc_local
         ;;
     *)
         logMessage "Keine spezifische Aktion angegeben. Führe Standardinstallation durch..."
         backup_originals
         install_config
+        install_qml_files
         setup_rc_local
         ;;
 esac

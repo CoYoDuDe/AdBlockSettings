@@ -11,9 +11,9 @@ standardPromptAndActions='yes'
 ROOT_PATH=/data/AdBlockSettings
 
 # Pfaddefinitionen
-CONFIG_FILE="/etc/dnsmasq.d/adblock.conf"
-SOURCE_CONFIG_FILE="${ROOT_PATH}/FileSets/configs/adblock.conf"
-BACKUP_CONFIG_FILE="${CONFIG_FILE}.orig"
+STATIC_CONFIG_FILE="/etc/dnsmasq_static.conf"
+SOURCE_STATIC_CONFIG_FILE="${ROOT_PATH}/FileSets/configs/dnsmasq_static.conf"
+BACKUP_STATIC_CONFIG_FILE="${STATIC_CONFIG_FILE}.orig"
 RC_LOCAL_FILE="/data/rc.local"
 RC_LOCAL_BACKUP="/data/rc.local.orig"
 RC_LOCAL_CONTENT="service dnsmasq restart"
@@ -56,40 +56,40 @@ remove_entry_from_rc_local() {
 # Originaldateien sichern
 backup_originals() {
     logMessage "Sichere Originaldateien..."
-    backupFile "$CONFIG_FILE" "$BACKUP_CONFIG_FILE"
+    backupFile "$STATIC_CONFIG_FILE" "$BACKUP_STATIC_CONFIG_FILE"
     backupFile "$RC_LOCAL_FILE" "$RC_LOCAL_BACKUP"
 }
 
 # Originaldateien wiederherstellen
 restore_originals() {
     logMessage "Stelle Originaldateien wieder her..."
-    restoreFile "$BACKUP_CONFIG_FILE" "$CONFIG_FILE"
+    restoreFile "$BACKUP_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"
     restoreFile "$RC_LOCAL_BACKUP" "$RC_LOCAL_FILE"
 }
 
 ## Konfigurationsdateien installieren und deinstallieren
 # Konfigurationsdateien installieren
 install_config() {
-    logMessage "Installiere adblock.conf..."
-    if [ -f "$SOURCE_CONFIG_FILE" ]; then
-        if ! cmp -s "$SOURCE_CONFIG_FILE" "$CONFIG_FILE"; then
-            cp "$SOURCE_CONFIG_FILE" "$CONFIG_FILE"
-            logMessage "adblock.conf erfolgreich installiert."
+    logMessage "Installiere dnsmasq_static.conf..."
+    if [ -f "$SOURCE_STATIC_CONFIG_FILE" ]; then
+        if ! cmp -s "$SOURCE_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"; then
+            cp "$SOURCE_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"
+            logMessage "dnsmasq_static.conf erfolgreich installiert."
             filesUpdated=true
         else
-            logMessage "adblock.conf ist bereits aktuell."
+            logMessage "dnsmasq_static.conf ist bereits aktuell."
         fi
     else
-        logMessage "Fehler: adblock.conf Quelle nicht gefunden."
-        setInstallFailed $EXIT_FILE_SET_ERROR "Fehler: adblock.conf Quelle nicht gefunden."
+        logMessage "Fehler: dnsmasq_static.conf Quelle nicht gefunden."
+        setInstallFailed $EXIT_FILE_SET_ERROR "Fehler: dnsmasq_static.conf Quelle nicht gefunden."
     fi
 }
 
 # Konfigurationsdateien deinstallieren
 uninstall_config() {
-    logMessage "Entferne adblock.conf..."
-    [ -f "$CONFIG_FILE" ] && rm -f "$CONFIG_FILE"
-    logMessage "adblock.conf entfernt."
+    logMessage "Entferne dnsmasq_static.conf..."
+    [ -f "$STATIC_CONFIG_FILE" ] && rm -f "$STATIC_CONFIG_FILE"
+    logMessage "dnsmasq_static.conf entfernt."
 }
 
 ## rc.local einrichten und zurücksetzen

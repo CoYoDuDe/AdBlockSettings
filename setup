@@ -3,7 +3,6 @@
 # Setup-Skript für AdBlockSettings
 # Einbinden der Helper-Ressourcen
 source "/data/SetupHelper/HelperResources/IncludeHelpers"
-source "/data/SetupHelper/HelperResources/CommonResources"
 
 # Standardaktionen aktivieren
 standardPromptAndActions='yes'
@@ -27,12 +26,14 @@ PATCH_FILE="${ROOT_PATH}/FileSets/PatchSource/PageSettings.qml.patch"
 if [ ! -f /etc/venus/machine ]; then
     logMessage "Kann den Venus-Gerätetyp nicht bestimmen - Skript wird beendet."
     setInstallFailed $EXIT_INCOMPATIBLE_PLATFORM "Kann den Venus-Gerätetyp nicht bestimmen."
+    exit 1
 fi
 
 machine=$(cat /etc/venus/machine)
 if [[ "$machine" != "raspberrypi2" && "$machine" != "raspberrypi4" ]]; then
     logMessage "$machine wird nicht unterstützt - Skript wird beendet."
     setInstallFailed $EXIT_INCOMPATIBLE_PLATFORM "$machine wird nicht unterstützt."
+    exit 1
 fi
 
 # Funktionen definieren
@@ -85,8 +86,8 @@ restore_originals() {
 # Konfigurationsdateien installieren
 install_config() {
     logMessage "Installiere dnsmasq_static.conf..."
-    if [ -f "$SOURCE_STATIC_CONFIG_FILE" ]; dann
-        if ! cmp -s "$SOURCE_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"; dann
+    if [ -f "$SOURCE_STATIC_CONFIG_FILE" ]; then
+        if ! cmp -s "$SOURCE_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"; then
             cp "$SOURCE_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"
             logMessage "dnsmasq_static.conf erfolgreich installiert."
             filesUpdated=true
@@ -110,7 +111,7 @@ uninstall_config() {
 # QML-Dateien kopieren
 install_qml_files() {
     logMessage "Kopiere QML-Dateien..."
-    if [ -f "$SOURCE_QML_FILE" ]; dann
+    if [ -f "$SOURCE_QML_FILE" ]; then
         cp "$SOURCE_QML_FILE" "$QML_DIR"
         logMessage "QML-Datei erfolgreich kopiert."
     else
@@ -122,7 +123,7 @@ install_qml_files() {
 # QML-Dateien entfernen
 uninstall_qml_files() {
     logMessage "Entferne QML-Dateien..."
-    if [ -f "$SOURCE_QML_FILE" ]; dann
+    if [ -f "$SOURCE_QML_FILE" ]; then
         filename=$(basename "$SOURCE_QML_FILE")
         [ -f "$QML_DIR/$filename" ] && rm -f "$QML_DIR/$filename"
         logMessage "QML-Datei entfernt."
@@ -135,7 +136,7 @@ uninstall_qml_files() {
 # Patch anwenden
 apply_patch() {
     logMessage "Wende Patch an..."
-    if [ -f "$PATCH_FILE" ]; dann
+    if [ -f "$PATCH_FILE" ]; then
         patch -N "$QML_DIR/PageSettings.qml" "$PATCH_FILE"
         logMessage "Patch erfolgreich angewendet."
     else
@@ -147,7 +148,7 @@ apply_patch() {
 # Patch entfernen
 remove_patch() {
     logMessage "Entferne Patch..."
-    if [ -f "$PATCH_FILE" ]; dann
+    if [ -f "$PATCH_FILE" ]; then
         patch -R "$QML_DIR/PageSettings.qml" "$PATCH_FILE"
         logMessage "Patch erfolgreich entfernt."
     else

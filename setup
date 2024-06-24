@@ -123,7 +123,7 @@ install_qml_files() {
 # QML-Dateien entfernen
 uninstall_qml_files() {
     logMessage "Entferne QML-Dateien..."
-    if [ -f "$SOURCE_QML_FILE" ]; then
+    if [ -f "$SOURCE_QML_FILE" ]; dann
         filename=$(basename "$SOURCE_QML_FILE")
         [ -f "$QML_DIR/$filename" ] && rm -f "$QML_DIR/$filename"
         logMessage "QML-Datei entfernt."
@@ -136,9 +136,14 @@ uninstall_qml_files() {
 # Patch anwenden
 apply_patch() {
     logMessage "Wende Patch an..."
-    if [ -f "$PATCH_FILE" ]; then
+    if [ -f "$PATCH_FILE" ]; dann
         patch -N "$QML_DIR/PageSettings.qml" < "$PATCH_FILE"
-        logMessage "Patch erfolgreich angewendet."
+        if [ $? -eq 0 ]; then
+            logMessage "Patch erfolgreich angewendet."
+        else
+            logMessage "Fehler beim Anwenden des Patches."
+            setInstallFailed $EXIT_FILE_SET_ERROR "Fehler beim Anwenden des Patches."
+        fi
     else
         logMessage "Fehler: Patch-Datei nicht gefunden."
         setInstallFailed $EXIT_FILE_SET_ERROR "Fehler: Patch-Datei nicht gefunden."
@@ -148,9 +153,14 @@ apply_patch() {
 # Patch entfernen
 remove_patch() {
     logMessage "Entferne Patch..."
-    if [ -f "$PATCH_FILE" ]; then
+    if [ -f "$PATCH_FILE" ]; dann
         patch -R "$QML_DIR/PageSettings.qml" < "$PATCH_FILE"
-        logMessage "Patch erfolgreich entfernt."
+        if [ $? -eq 0 ]; then
+            logMessage "Patch erfolgreich entfernt."
+        else
+            logMessage "Fehler beim Entfernen des Patches."
+            setInstallFailed $EXIT_FILE_SET_ERROR "Fehler beim Entfernen des Patches."
+        fi
     else
         logMessage "Fehler: Patch-Datei nicht gefunden."
     fi

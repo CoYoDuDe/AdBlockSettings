@@ -123,7 +123,7 @@ install_qml_files() {
 # QML-Dateien entfernen
 uninstall_qml_files() {
     logMessage "Entferne QML-Dateien..."
-    if [ -f "$SOURCE_QML_FILE" ]; dann
+    if [ -f "$SOURCE_QML_FILE" ]; then
         filename=$(basename "$SOURCE_QML_FILE")
         [ -f "$QML_DIR/$filename" ] && rm -f "$QML_DIR/$filename"
         logMessage "QML-Datei entfernt."
@@ -136,7 +136,7 @@ uninstall_qml_files() {
 # Patch anwenden
 apply_patch() {
     logMessage "Wende Patch an..."
-    if [ -f "$PATCH_FILE" ]; dann
+    if [ -f "$PATCH_FILE" ]; then
         patch -N "$QML_DIR/PageSettings.qml" < "$PATCH_FILE"
         if [ $? -eq 0 ]; then
             logMessage "Patch erfolgreich angewendet."
@@ -153,7 +153,7 @@ apply_patch() {
 # Patch entfernen
 remove_patch() {
     logMessage "Entferne Patch..."
-    if [ -f "$PATCH_FILE" ]; dann
+    if [ -f "$PATCH_FILE" ]; then
         patch -R "$QML_DIR/PageSettings.qml" < "$PATCH_FILE"
         if [ $? -eq 0 ]; then
             logMessage "Patch erfolgreich entfernt."

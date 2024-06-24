@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Einrichtungsskript für AdBlockSettings
+# Setup-Skript für AdBlockSettings
 # Einbinden der Helper-Ressourcen
 source "/data/SetupHelper/HelperResources/IncludeHelpers"
 
@@ -11,12 +11,12 @@ standardPromptAndActions='yes'
 ROOT_PATH=/data/AdBlockSettings
 
 # Pfaddefinitionen
-RC_LOCAL_PATH="/data/rc.local"
-QML_PATH="/opt/victronenergy/gui/qml/PageSettingsAdBlock.qml"
-PATCH_PATH="/opt/victronenergy/gui/qml/PageSettings.qml"
-PATCH_SOURCE="${ROOT_PATH}/FileSets/PatchSource/PageSettings.qml.patch"
-DNSMASQ_CONF="/etc/dnsmasq_static.conf"
-NEW_DNSMASQ_CONF="${ROOT_PATH}/FileSets/configs/dnsmasq_static.conf"
+CONFIG_FILE="/etc/dnsmasq.d/adblock.conf"
+SOURCE_CONFIG_FILE="${ROOT_PATH}/FileSets/configs/adblock.conf"
+BACKUP_CONFIG_FILE="${CONFIG_FILE}.orig"
+RC_LOCAL_FILE="/data/rc.local"
+RC_LOCAL_BACKUP="/data/rc.local.orig"
+RC_LOCAL_CONTENT="service dnsmasq restart"
 
 # Kompatibilität prüfen
 if [ ! -f /etc/venus/machine ]; then
@@ -36,125 +36,91 @@ fi
 # Eintrag in rc.local hinzufügen
 add_entry_to_rc_local() {
     local ENTRY="$1"
-    if [ ! -f "$RC_LOCAL_PATH" ]; then
-        echo "$ENTRY" > "$RC_LOCAL_PATH"
+    if [ ! -f "$RC_LOCAL_FILE" ]; then
+        echo "$ENTRY" > "$RC_LOCAL_FILE"
     else
-        if ! grep -qF "$ENTRY" "$RC_LOCAL_PATH"; then
-            echo "$ENTRY" >> "$RC_LOCAL_PATH"
+        if ! grep -qF "$ENTRY" "$RC_LOCAL_FILE"; then
+            echo "$ENTRY" >> "$RC_LOCAL_FILE"
         fi
     fi
-    chmod +x "$RC_LOCAL_PATH"
+    chmod +x "$RC_LOCAL_FILE"
 }
 
 # Eintrag aus rc.local entfernen
 remove_entry_from_rc_local() {
     local ENTRY="$1"
-    [ -f "$RC_LOCAL_PATH" ] && sed -i "/^$(echo "$ENTRY" | sed 's/[\/&]/\\&/g')$/d" "$RC_LOCAL_PATH"
+    [ -f "$RC_LOCAL_FILE" ] && sed -i "/^$(echo "$ENTRY" | sed 's/[\/&]/\\&/g')$/d" "$RC_LOCAL_FILE"
 }
 
-## rc.local-Einträge installieren und entfernen
-# Einträge in rc.local hinzufügen
-install_rc_local_entries() {
-    add_entry_to_rc_local "ln -s ${ROOT_PATH}/service/AdBlockSettings /service/AdBlockSettings"
-    add_entry_to_rc_local "/etc/init.d/dnsmasq start"
+## Originaldateien sichern und wiederherstellen
+# Originaldateien sichern
+backup_originals() {
+    logMessage "Sichere Originaldateien..."
+    backupFile "$CONFIG_FILE" "$BACKUP_CONFIG_FILE"
+    backupFile "$RC_LOCAL_FILE" "$RC_LOCAL_BACKUP"
 }
 
-# Einträge aus rc.local entfernen
-uninstall_rc_local_entries() {
-    remove_entry_from_rc_local "ln -s ${ROOT_PATH}/service/AdBlockSettings /service/AdBlockSettings"
-    remove_entry_from_rc_local "/etc/init.d/dnsmasq start"
+# Originaldateien wiederherstellen
+restore_originals() {
+    logMessage "Stelle Originaldateien wieder her..."
+    restoreFile "$BACKUP_CONFIG_FILE" "$CONFIG_FILE"
+    restoreFile "$RC_LOCAL_BACKUP" "$RC_LOCAL_FILE"
 }
 
-## QML-Dateien und Patch installieren und deinstallieren
-# QML-Dateien und Patch installieren
-install_qml_files_and_patch() {
-    if [ -f "$PATCH_SOURCE" ]; then
-        # Überprüfen, ob die QML-Dateien bereits vorhanden sind
-        if [ ! -f "$QML_PATH" ]; then
-            logMessage "Kopiere QML-Dateien..."
-            cp -f "${ROOT_PATH}/FileSets/VersionIndependent/*.qml" /opt/victronenergy/gui/qml/
-            logMessage "QML-Dateien wurden kopiert."
+## Konfigurationsdateien installieren und deinstallieren
+# Konfigurationsdateien installieren
+install_config() {
+    logMessage "Installiere adblock.conf..."
+    if [ -f "$SOURCE_CONFIG_FILE" ]; then
+        if ! cmp -s "$SOURCE_CONFIG_FILE" "$CONFIG_FILE"; then
+            cp "$SOURCE_CONFIG_FILE" "$CONFIG_FILE"
+            logMessage "adblock.conf erfolgreich installiert."
+            filesUpdated=true
         else
-            logMessage "QML-Dateien sind bereits vorhanden."
-        fi
-        # Überprüfen, ob der Patch bereits angewendet wurde
-        if ! grep -q "//////// modified to insert AdBlockSettings menu" "$PATCH_PATH"; then
-            logMessage "Wende Patch an..."
-            patch "$PATCH_PATH" < "$PATCH_SOURCE"
-            logMessage "QML-Dateien und Patch wurden installiert."
-        else
-            logMessage "Patch ist bereits angewendet."
+            logMessage "adblock.conf ist bereits aktuell."
         fi
     else
-        logMessage "Fehler: Patch-Quelle nicht gefunden."
-        setInstallFailed $EXIT_FILE_SET_ERROR "Fehler: Patch-Quelle nicht gefunden."
+        logMessage "Fehler: adblock.conf Quelle nicht gefunden."
+        setInstallFailed $EXIT_FILE_SET_ERROR "Fehler: adblock.conf Quelle nicht gefunden."
     fi
 }
 
-# QML-Dateien und Patch deinstallieren
-uninstall_qml_files_and_patch() {
-    rm -f /opt/victronenergy/gui/qml/PageSettingsAdBlock.qml
-    if [ -f "${PATCH_PATH}.orig" ]; then
-        mv "${PATCH_PATH}.orig" "$PATCH_PATH"
-    fi
-    logMessage "QML-Dateien und Patch deinstalliert."
+# Konfigurationsdateien deinstallieren
+uninstall_config() {
+    logMessage "Entferne adblock.conf..."
+    [ -f "$CONFIG_FILE" ] && rm -f "$CONFIG_FILE"
+    logMessage "adblock.conf entfernt."
 }
 
-## dnsmasq-Konfiguration installieren und deinstallieren
-# dnsmasq-Konfiguration installieren
-install_dnsmasq_config() {
-    if [ -f "$NEW_DNSMASQ_CONF" ]; then
-        if ! cmp -s "$NEW_DNSMASQ_CONF" "$DNSMASQ_CONF"; then
-            cp -f "$NEW_DNSMASQ_CONF" "$DNSMASQ_CONF"
-            logMessage "dnsmasq_static.conf wurde aktualisiert."
-        else
-            logMessage "dnsmasq_static.conf ist bereits aktuell."
-        fi
-    else
-        logMessage "Fehler: dnsmasq_static.conf Quelle nicht gefunden."
-        setInstallFailed $EXIT_FILE_SET_ERROR "Fehler: dnsmasq_static.conf Quelle nicht gefunden."
-    fi
+## rc.local einrichten und zurücksetzen
+# rc.local einrichten
+setup_rc_local() {
+    logMessage "Richte rc.local ein..."
+    add_entry_to_rc_local "$RC_LOCAL_CONTENT"
 }
 
-# dnsmasq-Konfiguration deinstallieren
-uninstall_dnsmasq_config() {
-    if [ -f "${DNSMASQ_CONF}.orig" ]; then
-        mv "${DNSMASQ_CONF}.orig" "$DNSMASQ_CONF"
-    fi
-    /etc/init.d/dnsmasq restart
-    logMessage "dnsmasq-Konfiguration deinstalliert."
-}
-
-## D-Bus-Einstellungen installieren und deinstallieren
-# D-Bus-Einstellungen installieren
-install_dbus_settings() {
-    addAllDbusSettings
-}
-
-# D-Bus-Einstellungen deinstallieren
-uninstall_dbus_settings() {
-    removeAllDbusSettings
+# rc.local zurücksetzen
+reset_rc_local() {
+    logMessage "Setze rc.local zurück..."
+    remove_entry_from_rc_local "service dnsmasq restart"
 }
 
 case "$scriptAction" in
     INSTALL|CHECK)
-        install_rc_local_entries
-        install_qml_files_and_patch
-        install_dnsmasq_config
-        install_dbus_settings
+        backup_originals
+        install_config
+        setup_rc_local
         ;;
     UNINSTALL)
-        uninstall_rc_local_entries
-        uninstall_qml_files_and_patch
-        uninstall_dnsmasq_config
-        uninstall_dbus_settings
+        restore_originals
+        uninstall_config
+        reset_rc_local
         ;;
     *)
         logMessage "Keine spezifische Aktion angegeben. Führe Standardinstallation durch..."
-        install_rc_local_entries
-        install_qml_files_and_patch
-        install_dnsmasq_config
-        install_dbus_settings
+        backup_originals
+        install_config
+        setup_rc_local
         ;;
 esac
 

@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 import threading
 import logging
 import shutil
+import asyncio
 from gi.repository import GLib
 
 sys.path.insert(1, '/opt/victronenergy/dbus-systemcalc-py/ext/velib_python')
@@ -85,17 +86,15 @@ class AdBlockService(dbus.service.Object):
         self.is_configuring = False
         self.dbus_service['/Configuring'] = False
 
-    def start_download(self, path, value):
+    async def start_download(self, path, value):
         if value:
-            threading.Thread(target=self.update_adblock_list).start()
+            asyncio.create_task(self.update_adblock_list())
             self.dbus_service[path] = False
 
-    def start_configure(self, path, value):
+    async def start_configure(self, path, value):
         if value:
-            threading.Thread(target=self.update_adblock_list).start()
-            while self.is_downloading:
-                time.sleep(1)
-            threading.Thread(target=self.configure_dnsmasq).start()
+            await self.update_adblock_list()
+            await self.configure_dnsmasq()
             self.dbus_service[path] = False
 
     def calculate_hash(self, content):
@@ -112,7 +111,7 @@ class AdBlockService(dbus.service.Object):
                     converted_lines.append(converted_line)
         return converted_lines
 
-    def update_adblock_list(self):
+    async def update_adblock_list(self):
         if not self.is_downloading:
             with self.download_lock:
                 self.DownloadStarted()
@@ -120,13 +119,13 @@ class AdBlockService(dbus.service.Object):
                 last_known_hash = self.get_setting("/Settings/AdBlock/LastKnownHash")
 
                 try:
-                    response = requests.get(adblock_list_url, timeout=10)
+                    response = await asyncio.to_thread(requests.get, adblock_list_url, timeout=10)
                     response.raise_for_status()
                     current_hash = self.calculate_hash(response.text)
                     if current_hash != last_known_hash:
                         converted_list = self.convert_to_dnsmasq_format(response.text.splitlines())
-                        with open(local_file_path, 'w') as file:
-                            file.write("\n".join(converted_list))
+                        async with aiofiles.open(local_file_path, 'w') as file:
+                            await file.write("\n".join(converted_list))
                         self.set_setting("/Settings/AdBlock/LastKnownHash", current_hash)
                         logger.info("AdBlock-Liste aktualisiert.")
                     else:
@@ -142,7 +141,7 @@ class AdBlockService(dbus.service.Object):
                 finally:
                     self.DownloadFinished()
 
-    def configure_dnsmasq(self):
+    async def configure_dnsmasq(self):
         if not self.is_configuring:
             with self.configure_lock:
                 self.ConfigureDnsmasqStarted()
@@ -158,9 +157,9 @@ class AdBlockService(dbus.service.Object):
                 if self.get_setting("/Settings/AdBlock/IPv6Enabled"):
                     new_config += "enable-ra\n"
 
-                with open(dnsmasq_config_path, 'w') as file:
-                    file.write(new_config)
-                self.restart_dnsmasq()
+                async with aiofiles.open(dnsmasq_config_path, 'w') as file:
+                    await file.write(new_config)
+                await asyncio.to_thread(self.restart_dnsmasq)
                 self.ConfigureDnsmasqFinished()
 
     def restart_dnsmasq(self):
@@ -178,11 +177,16 @@ class AdBlockService(dbus.service.Object):
 
     def check_for_updates(self):
         if datetime.now() >= self.next_update and self.adblock_enabled:
-            self.update_adblock_list()
+            asyncio.run(self.update_adblock_list())
             self.schedule_next_update()
 
         interval = 86400
         threading.Timer(interval, self.check_for_updates).start()
 
 def main():
-    bus = dbus.System
+    bus = dbus.SystemBus()
+    service = AdBlockService(bus)
+    GLib.MainLoop().run()
+
+if __name__ == "__main__":
+    main()

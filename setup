@@ -91,7 +91,6 @@ install_config() {
             cp "$SOURCE_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"
             logMessage "dnsmasq_static.conf erfolgreich installiert."
             filesUpdated=true
-            rebootNeeded=true
         else
             logMessage "dnsmasq_static.conf ist bereits aktuell."
         fi
@@ -106,7 +105,6 @@ uninstall_config() {
     logMessage "Entferne dnsmasq_static.conf..."
     [ -f "$STATIC_CONFIG_FILE" ] && rm -f "$STATIC_CONFIG_FILE"
     logMessage "dnsmasq_static.conf entfernt."
-    rebootNeeded=true
 }
 
 ## QML-Dateien kopieren und entfernen
@@ -130,7 +128,6 @@ uninstall_qml_files() {
         filename=$(basename "$SOURCE_QML_FILE")
         [ -f "$QML_DIR/$filename" ] && rm -f "$QML_DIR/$filename"
         logMessage "QML-Datei entfernt."
-        restartGui=true
     else
         logMessage "Fehler: QML-Quelle nicht gefunden."
     fi
@@ -141,13 +138,17 @@ uninstall_qml_files() {
 apply_patch() {
     logMessage "Wende Patch an..."
     if [ -f "$PATCH_FILE" ]; then
-        patch -N "$QML_DIR/PageSettings.qml" < "$PATCH_FILE"
-        if [ $? -eq 0 ]; then
-            logMessage "Patch erfolgreich angewendet."
-            restartGui=true
+        if ! grep -q "PageSettingsAdBlock" "$QML_DIR/PageSettings.qml"; then
+            patch -N "$QML_DIR/PageSettings.qml" < "$PATCH_FILE"
+            if [ $? -eq 0 ]; then
+                logMessage "Patch erfolgreich angewendet."
+                restartGui=true
+            else
+                logMessage "Fehler beim Anwenden des Patches."
+                setInstallFailed $EXIT_FILE_SET_ERROR "Fehler beim Anwenden des Patches."
+            fi
         else
-            logMessage "Fehler beim Anwenden des Patches."
-            setInstallFailed $EXIT_FILE_SET_ERROR "Fehler beim Anwenden des Patches."
+            logMessage "Patch ist bereits angewendet."
         fi
     else
         logMessage "Fehler: Patch-Datei nicht gefunden."
@@ -159,13 +160,17 @@ apply_patch() {
 remove_patch() {
     logMessage "Entferne Patch..."
     if [ -f "$PATCH_FILE" ]; then
-        patch -R "$QML_DIR/PageSettings.qml" < "$PATCH_FILE"
-        if [ $? -eq 0 ]; then
-            logMessage "Patch erfolgreich entfernt."
-            restartGui=true
+        if grep -q "PageSettingsAdBlock" "$QML_DIR/PageSettings.qml"; then
+            patch -R "$QML_DIR/PageSettings.qml" < "$PATCH_FILE"
+            if [ $? -eq 0 ]; then
+                logMessage "Patch erfolgreich entfernt."
+                restartGui=true
+            else
+                logMessage "Fehler beim Entfernen des Patches."
+                setInstallFailed $EXIT_FILE_SET_ERROR "Fehler beim Entfernen des Patches."
+            fi
         else
-            logMessage "Fehler beim Entfernen des Patches."
-            setInstallFailed $EXIT_FILE_SET_ERROR "Fehler beim Entfernen des Patches."
+            logMessage "Patch ist bereits entfernt."
         fi
     else
         logMessage "Fehler: Patch-Datei nicht gefunden."
@@ -177,14 +182,12 @@ remove_patch() {
 setup_rc_local() {
     logMessage "Richte rc.local ein..."
     add_entry_to_rc_local "$RC_LOCAL_CONTENT"
-    rebootNeeded=true
 }
 
 # rc.local zurücksetzen
 reset_rc_local() {
     logMessage "Setze rc.local zurück..."
     remove_entry_from_rc_local "service dnsmasq restart"
-    rebootNeeded=true
 }
 
 case "$scriptAction" in

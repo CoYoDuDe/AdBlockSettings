@@ -62,10 +62,10 @@ remove_entry_from_rc_local() {
 # Originaldateien sichern
 backup_originals() {
     logMessage "Sichere Originaldateien..."
-    backupFile "$STATIC_CONFIG_FILE" "$BACKUP_STATIC_CONFIG_FILE"
-    backupFile "$RC_LOCAL_FILE" "$RC_LOCAL_BACKUP"
+    [ -f "$STATIC_CONFIG_FILE" ] && backupFile "$STATIC_CONFIG_FILE" "$BACKUP_STATIC_CONFIG_FILE"
+    [ -f "$RC_LOCAL_FILE" ] && backupFile "$RC_LOCAL_FILE" "$RC_LOCAL_BACKUP"
     if [ -d "$QML_DIR" ]; then
-        cp -r "$QML_DIR" "$QML_BACKUP_DIR"
+        [ ! -d "$QML_BACKUP_DIR" ] && cp -r "$QML_DIR" "$QML_BACKUP_DIR"
         logMessage "QML-Dateien gesichert."
     fi
 }
@@ -73,8 +73,8 @@ backup_originals() {
 # Originaldateien wiederherstellen
 restore_originals() {
     logMessage "Stelle Originaldateien wieder her..."
-    restoreFile "$BACKUP_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"
-    restoreFile "$RC_LOCAL_BACKUP" "$RC_LOCAL_FILE"
+    [ -f "$BACKUP_STATIC_CONFIG_FILE" ] && restoreFile "$BACKUP_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"
+    [ -f "$RC_LOCAL_BACKUP" ] && restoreFile "$RC_LOCAL_BACKUP" "$RC_LOCAL_FILE"
     if [ -d "$QML_BACKUP_DIR" ]; then
         rm -rf "$QML_DIR"
         mv "$QML_BACKUP_DIR" "$QML_DIR"
@@ -87,7 +87,7 @@ restore_originals() {
 install_config() {
     logMessage "Installiere dnsmasq_static.conf..."
     if [ -f "$SOURCE_STATIC_CONFIG_FILE" ]; then
-        if ! cmp -s "$SOURCE_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"; then
+        if [ ! -f "$STATIC_CONFIG_FILE" ] || ! cmp -s "$SOURCE_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"; then
             cp "$SOURCE_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"
             logMessage "dnsmasq_static.conf erfolgreich installiert."
             filesUpdated=true
@@ -112,9 +112,13 @@ uninstall_config() {
 install_qml_files() {
     logMessage "Kopiere QML-Dateien..."
     if [ -f "$SOURCE_QML_FILE" ]; then
-        cp "$SOURCE_QML_FILE" "$QML_DIR"
-        logMessage "QML-Datei erfolgreich kopiert."
-        restartGui=true
+        if [ ! -f "$QML_DIR/$(basename "$SOURCE_QML_FILE")" ]; then
+            cp "$SOURCE_QML_FILE" "$QML_DIR"
+            logMessage "QML-Datei erfolgreich kopiert."
+            restartGui=true
+        else
+            logMessage "QML-Datei ist bereits vorhanden."
+        fi
     else
         logMessage "Fehler: QML-Quelle nicht gefunden."
         setInstallFailed $EXIT_FILE_SET_ERROR "Fehler: QML-Quelle nicht gefunden."

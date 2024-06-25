@@ -1,5 +1,5 @@
---- PageSettings.qml.source.qml
-+++ PageSettings.qml.edited.qml
+--- PageSettings.qml
++++ PageSettings.qml
 @@ -197,6 +197,13 @@
              description: qsTr("Package manager")
              subpage: Component { PageSettingsPackageManager {} }

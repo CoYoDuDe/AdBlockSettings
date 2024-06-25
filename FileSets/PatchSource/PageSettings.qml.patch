@@ -1,5 +1,5 @@
---- PageSettings.qml
-+++ PageSettings.qml
+--- /opt/victronenergy/gui/qml/PageSettings.qml
++++ /opt/victronenergy/gui/qml/PageSettings.qml
 @@ -197,6 +197,13 @@
              description: qsTr("Package manager")
              subpage: Component { PageSettingsPackageManager {} }

@@ -39,7 +39,6 @@ fi
 # Funktionen definieren
 
 ## Einträge in rc.local hinzufügen und entfernen
-# Eintrag in rc.local hinzufügen
 add_entry_to_rc_local() {
     local ENTRY="$1"
     if [ ! -f "$RC_LOCAL_FILE" ]; then
@@ -52,14 +51,12 @@ add_entry_to_rc_local() {
     chmod +x "$RC_LOCAL_FILE"
 }
 
-# Eintrag aus rc.local entfernen
 remove_entry_from_rc_local() {
     local ENTRY="$1"
     [ -f "$RC_LOCAL_FILE" ] && sed -i "/^$(echo "$ENTRY" | sed 's/[\/&]/\\&/g')$/d" "$RC_LOCAL_FILE"
 }
 
 ## Originaldateien sichern und wiederherstellen
-# Originaldateien sichern
 backup_originals() {
     logMessage "Sichere Originaldateien..."
     [ -f "$STATIC_CONFIG_FILE" ] && backupFile "$STATIC_CONFIG_FILE" "$BACKUP_STATIC_CONFIG_FILE"
@@ -70,7 +67,6 @@ backup_originals() {
     fi
 }
 
-# Originaldateien wiederherstellen
 restore_originals() {
     logMessage "Stelle Originaldateien wieder her..."
     [ -f "$BACKUP_STATIC_CONFIG_FILE" ] && restoreFile "$BACKUP_STATIC_CONFIG_FILE" "$STATIC_CONFIG_FILE"
@@ -83,7 +79,6 @@ restore_originals() {
 }
 
 ## Konfigurationsdateien installieren und deinstallieren
-# Konfigurationsdateien installieren
 install_config() {
     logMessage "Installiere dnsmasq_static.conf..."
     if [ -f "$SOURCE_STATIC_CONFIG_FILE" ]; then
@@ -100,7 +95,6 @@ install_config() {
     fi
 }
 
-# Konfigurationsdateien deinstallieren
 uninstall_config() {
     logMessage "Entferne dnsmasq_static.conf..."
     [ -f "$STATIC_CONFIG_FILE" ] && rm -f "$STATIC_CONFIG_FILE"
@@ -108,7 +102,6 @@ uninstall_config() {
 }
 
 ## QML-Dateien kopieren und entfernen
-# QML-Dateien kopieren
 install_qml_files() {
     logMessage "Kopiere QML-Dateien..."
     if [ -f "$SOURCE_QML_FILE" ]; then
@@ -125,7 +118,6 @@ install_qml_files() {
     fi
 }
 
-# QML-Dateien entfernen
 uninstall_qml_files() {
     logMessage "Entferne QML-Dateien..."
     if [ -f "$SOURCE_QML_FILE" ]; then
@@ -138,7 +130,6 @@ uninstall_qml_files() {
 }
 
 ## Patch anwenden und entfernen
-# Patch anwenden
 apply_patch() {
     logMessage "Wende Patch an..."
     if [ -f "$PATCH_FILE" ]; then
@@ -160,7 +151,6 @@ apply_patch() {
     fi
 }
 
-# Patch entfernen
 remove_patch() {
     logMessage "Entferne Patch..."
     if [ -f "$PATCH_FILE" ]; then
@@ -182,13 +172,11 @@ remove_patch() {
 }
 
 ## rc.local einrichten und zurücksetzen
-# rc.local einrichten
 setup_rc_local() {
     logMessage "Richte rc.local ein..."
     add_entry_to_rc_local "$RC_LOCAL_CONTENT"
 }
 
-# rc.local zurücksetzen
 reset_rc_local() {
     logMessage "Setze rc.local zurück..."
     remove_entry_from_rc_local "service dnsmasq restart"

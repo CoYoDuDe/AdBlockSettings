@@ -1,5 +1,5 @@
---- PageSettings.qml
-+++ PageSettings.qml
+--- PageSettings.qml.source.qml
++++ PageSettings.qml.edited.qml
 @@ -1,3 +1,4 @@
 +//////// modified to insert AdBlockSettings menu
  //////// modified to insert PackageManager menu

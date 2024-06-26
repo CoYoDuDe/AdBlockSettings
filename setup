@@ -5,3 +5,35 @@ source "/data/SetupHelper/HelperResources/IncludeHelpers"
 
 # Standardaktionen aktivieren
 standardPromptAndActions='yes'
+
+# Pfaddefinitionen
+RC_LOCAL_FILE="/data/rc.local"
+RC_LOCAL_CONTENT="service dnsmasq restart"
+
+# Funktionen definieren
+
+setup_rc_local() {
+    logMessage "Richte rc.local ein..."
+    add_entry_to_rc_local "$RC_LOCAL_CONTENT"
+}
+
+reset_rc_local() {
+    logMessage "Setze rc.local zurück..."
+    remove_entry_from_rc_local "service dnsmasq restart"
+}
+
+case "$scriptAction" in
+    INSTALL|CHECK)
+        setup_rc_local
+        ;;
+    UNINSTALL)
+        reset_rc_local
+        ;;
+    *)
+        logMessage "Keine spezifische Aktion angegeben. Führe Standardinstallation durch..."
+        setup_rc_local
+        ;;
+esac
+
+logMessage "Skriptausführung abgeschlossen."
+endScript

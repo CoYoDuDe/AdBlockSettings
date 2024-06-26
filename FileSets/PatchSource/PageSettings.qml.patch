@@ -1,5 +1,5 @@
---- /opt/victronenergy/gui/qml/PageSettings.qml.orig
-+++ /opt/victronenergy/gui/qml/PageSettings.qml
+--- PageSettings.qml.orig
++++ PageSettings.qml
 @@ -1,6 +1,7 @@
 +//////// modified to insert AdBlockSettings menu
  //////// modified to insert PackageManager menu

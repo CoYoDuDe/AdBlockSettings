@@ -1,25 +1,24 @@
 #!/bin/bash
 
-# Einbinden der Helper-Ressourcen
+# Setup-Skript für AdBlockSettings
 source "/data/SetupHelper/HelperResources/IncludeHelpers"
 
-# Standardaktionen aktivieren
 standardPromptAndActions='yes'
 
-# Pfaddefinitionen
+ROOT_PATH=/data/AdBlockSettings
 RC_LOCAL_FILE="/data/rc.local"
 RC_LOCAL_CONTENT="service dnsmasq restart"
 
-# Funktionen definieren
-
 setup_rc_local() {
     logMessage "Richte rc.local ein..."
-    add_entry_to_rc_local "$RC_LOCAL_CONTENT"
-}
-
-reset_rc_local() {
-    logMessage "Setze rc.local zurück..."
-    remove_entry_from_rc_local "service dnsmasq restart"
+    if [ ! -f "$RC_LOCAL_FILE" ]; then
+        echo "$RC_LOCAL_CONTENT" > "$RC_LOCAL_FILE"
+    else
+        if ! grep -qF "$RC_LOCAL_CONTENT" "$RC_LOCAL_FILE"; then
+            echo "$RC_LOCAL_CONTENT" >> "$RC_LOCAL_FILE"
+        fi
+    fi
+    chmod +x "$RC_LOCAL_FILE"
 }
 
 case "$scriptAction" in
@@ -27,10 +26,10 @@ case "$scriptAction" in
         setup_rc_local
         ;;
     UNINSTALL)
-        reset_rc_local
+        logMessage "Kein Uninstall-Skript definiert."
         ;;
     *)
-        logMessage "Keine spezifische Aktion angegeben. Führe Standardinstallation durch..."
+        logMessage "Keine spezifische Aktion angegeben."
         setup_rc_local
         ;;
 esac

@@ -1,2 +1,1 @@
-# Datei listet alle versionsspezifischen Dateien
-FileSets/configs/dnsmasq_static.conf /etc/dnsmasq_static.conf
+/etc/dnsmasq_static.conf

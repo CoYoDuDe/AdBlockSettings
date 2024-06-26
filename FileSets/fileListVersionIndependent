@@ -1,2 +1,1 @@
-# Datei listet alle versionsunabhängigen Dateien
-FileSets/VersionIndependent/PageSettingsAdBlock.qml /opt/victronenergy/gui/qml/PageSettingsAdBlock.qml
+/opt/victronenergy/gui/qml/PageSettingsAdBlock.qml

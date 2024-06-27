@@ -9,6 +9,8 @@ ROOT_PATH=/data/AdBlockSettings
 RC_LOCAL_FILE="/data/rc.local"
 RC_LOCAL_CONTENT="service dnsmasq restart"
 
+qmlDir=/opt/victronenergy/gui/qml
+
 setup_rc_local() {
     logMessage "Richte rc.local ein..."
     if [ ! -f "$RC_LOCAL_FILE" ]; then

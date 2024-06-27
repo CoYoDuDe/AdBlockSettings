@@ -103,12 +103,6 @@ MbPage {
 		}
 
 		MbSubMenu {
-			show: App.withQwacs
-			description: qsTr("Wireless AC sensors")
-			subpage: Component { PageSettingsQwacs {} }
-		}
-
-		MbSubMenu {
 			description: qsTr("Modbus TCP/UDP devices")
 			subpage: Component { PageSettingsModbus {} }
 		}

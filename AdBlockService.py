@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse
 import requests
 import dbus
@@ -7,11 +9,84 @@ import sys
 import os
 import hashlib
 import shutil
-import asyncio
+import threading
+from datetime import datetime, timedelta
 from gi.repository import GLib
 from pathlib import Path
+import netifaces
+import logging
+
+# Pfad zu den benötigten Bibliotheken hinzufügen
+sys.path.insert(1, '/opt/victronenergy/dbus-systemcalc-py/ext/velib_python')
 from vedbus import VeDbusService, VeDbusItemImport, VeDbusItemExport
-import AdBlockUtils
+
+# Logging konfigurieren
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Hilfsfunktionen
+def log_info(message):
+    logger.info(message)
+
+def log_error(message):
+    logger.error(message)
+
+def get_default_gateway():
+    try:
+        gateways = netifaces.gateways()
+        default_gateway = gateways['default'][netifaces.AF_INET][0]
+        return default_gateway
+    except Exception as e:
+        log_error(f"Fehler beim Ermitteln des Standard-Gateways: {e}")
+        return "192.168.1.1"
+
+def get_local_ip():
+    try:
+        interfaces = netifaces.interfaces()
+        for interface in interfaces:
+            addresses = netifaces.ifaddresses(interface)
+            if netifaces.AF_INET in addresses:
+                ipv4_info = addresses[netifaces.AF_INET][0]
+                ip_address = ipv4_info['addr']
+                return ip_address
+    except Exception as e:
+        log_error(f"Fehler beim Ermitteln der lokalen IP-Adresse: {e}")
+        return "192.168.1.1"
+
+def get_network_settings():
+    try:
+        default_gateway = get_default_gateway()
+        local_ip = get_local_ip()
+        ip_range_start = default_gateway.rsplit('.', 1)[0] + ".100"
+        ip_range_end = default_gateway.rsplit('.', 1)[0] + ".200"
+        return {
+            "default_gateway": default_gateway,
+            "dns_server": local_ip,
+            "ip_range_start": ip_range_start,
+            "ip_range_end": ip_range_end
+        }
+    except Exception as e:
+        log_error(f"Fehler beim Ermitteln der Netzwerkeinstellungen: {e}")
+        return {
+            "default_gateway": "192.168.1.1",
+            "dns_server": "192.168.1.1",
+            "ip_range_start": "192.168.1.100",
+            "ip_range_end": "192.168.1.200"
+        }
+
+def calculate_hash(content):
+    return hashlib.sha256(content.encode('utf-8')).hexdigest()
+
+def convert_to_dnsmasq_format(lines):
+    converted_lines = []
+    for line in lines:
+        if line.strip() and not line.startswith("#"):
+            parts = line.split()
+            if len(parts) >= 2:
+                domain = parts[1]
+                converted_line = f"address=/{domain}/#"
+                converted_lines.append(converted_line)
+    return converted_lines
 
 DBusGMainLoop(set_as_default=True)
 
@@ -27,7 +102,6 @@ class AdBlockService(dbus.service.Object):
         self.dbus_service = VeDbusService('com.victronenergy.adblock', bus=self.bus)
         self.dbus_service.add_path('/DownloadTrigger', False, writeable=True, onchangecallback=self.start_download)
         self.dbus_service.add_path('/ConfigureTrigger', False, writeable=True, onchangecallback=self.start_configure)
-
         self.dbus_service.add_path('/Downloading', False, writeable=False)
         self.dbus_service.add_path('/Configuring', False, writeable=False)
 
@@ -50,28 +124,31 @@ class AdBlockService(dbus.service.Object):
             item = VeDbusItemImport(self.bus, 'com.victronenergy.settings', path)
             return item.get_value()
         except Exception as e:
-            AdBlockUtils.log_error(f"DBus Fehler: {e}")
+            log_error(f"DBus Fehler: {e}")
             return None
 
     def set_setting(self, path, value):
         try:
             item = VeDbusItemExport(self.bus, path, value, writeable=True)
             item.local_set_value(value)
-            AdBlockUtils.log_info(f"Wert für Pfad {path} im D-Bus aktualisiert: {value}")
+            log_info(f"Wert für Pfad {path} im D-Bus aktualisiert: {value}")
         except Exception as e:
-            AdBlockUtils.log_error(f"Fehler beim Aktualisieren des D-Bus Wertes: {e}")
+            log_error(f"Fehler beim Aktualisieren des D-Bus Wertes: {e}")
 
     def set_default_settings(self):
+        network_settings = get_network_settings()
         settings = {
-            "/Settings/AdBlock/AdListURL": "https://example.com/adlist.txt",
+            "/Settings/AdBlock/BlocklistURLs": ["https://example.com/adlist.txt"],
             "/Settings/AdBlock/UpdateInterval": "weekly",
-            "/Settings/AdBlock/DefaultGateway": AdBlockUtils.get_default_gateway(),
-            "/Settings/AdBlock/DNSServer": AdBlockUtils.get_local_ip(),
-            "/Settings/AdBlock/IPRangeStart": "192.168.1.100",
-            "/Settings/AdBlock/IPRangeEnd": "192.168.1.200",
+            "/Settings/AdBlock/DefaultGateway": network_settings["default_gateway"],
+            "/Settings/AdBlock/DNSServer": network_settings["dns_server"],
+            "/Settings/AdBlock/IPRangeStart": network_settings["ip_range_start"],
+            "/Settings/AdBlock/IPRangeEnd": network_settings["ip_range_end"],
             "/Settings/AdBlock/DHCPEnabled": 0,
             "/Settings/AdBlock/IPv6Enabled": 0,
-            "/Settings/AdBlock/LastKnownHash": ""
+            "/Settings/AdBlock/LastKnownHash": "",
+            "/Settings/AdBlock/Whitelist": [],
+            "/Settings/AdBlock/Blacklist": []
         }
 
         for path, default in settings.items():
@@ -95,16 +172,22 @@ class AdBlockService(dbus.service.Object):
         self.is_configuring = False
         self.dbus_service['/Configuring'] = False
 
-    async def start_download(self, path, value):
+    def start_download(self, path, value):
         if value:
-            asyncio.create_task(self.update_adblock_list())
-            self.dbus_service[path] = False
+            threading.Thread(target=self.update_adblock_list).start()
+            self.dbus_service[path] = False  # Setzt den Trigger zurück
 
-    async def start_configure(self, path, value):
+    def start_configure(self, path, value):
         if value:
-            await self.update_adblock_list()
-            await self.configure_dnsmasq()
-            self.dbus_service[path] = False
+            threading.Thread(target=self.update_adblock_list).start()
+        
+            # Wartet, bis der Download abgeschlossen ist
+            while self.is_downloading:
+                time.sleep(1)
+
+            # Startet dann die Konfiguration
+            threading.Thread(target=self.configure_dnsmasq).start()
+            self.dbus_service[path] = False  # Setzt den Trigger zurück
 
     def calculate_hash(self, content):
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
@@ -120,34 +203,45 @@ class AdBlockService(dbus.service.Object):
                     converted_lines.append(converted_line)
         return converted_lines
 
-    async def update_adblock_list(self):
+    def update_adblock_list(self):
+        """Lädt die AdBlock-Liste herunter und aktualisiert die lokale Konfigurationsdatei."""
         if not self.is_downloading:
             with self.download_lock:
                 self.DownloadStarted()
-                adblock_list_urls = self.get_setting("/Settings/AdBlock/AdListURL").split(',')
+                adblock_list_urls = self.get_setting("/Settings/AdBlock/BlocklistURLs")
+                whitelist_urls = self.get_setting("/Settings/AdBlock/Whitelist")
+                blacklist_urls = self.get_setting("/Settings/AdBlock/Blacklist")
                 last_known_hash = self.get_setting("/Settings/AdBlock/LastKnownHash")
 
                 combined_content = ""
                 for url in adblock_list_urls:
                     try:
-                        response = await asyncio.to_thread(requests.get, url.strip(), timeout=10)
+                        response = requests.get(url.strip(), timeout=10)
                         response.raise_for_status()
                         combined_content += response.text + "\n"
                     except requests.exceptions.RequestException as e:
-                        AdBlockUtils.log_error(f"Fehler beim Herunterladen von {url}: {e}")
+                        log_error(f"Fehler beim Herunterladen von {url}: {e}")
 
                 current_hash = self.calculate_hash(combined_content)
                 if current_hash != last_known_hash:
                     converted_list = self.convert_to_dnsmasq_format(combined_content.splitlines())
-                    async with aiofiles.open(local_file_path, 'w') as file:
-                        await file.write("\n".join(converted_list))
+
+                    # Whitelist und Blacklist anwenden
+                    whitelist_entries = [f"address=/{entry}/" for entry in whitelist_urls]
+                    blacklist_entries = [f"address=/{entry}/#" for entry in blacklist_urls]
+                    converted_list.extend(whitelist_entries)
+                    converted_list.extend(blacklist_entries)
+
+                    with open(local_file_path, 'w') as file:
+                        file.write("\n".join(converted_list))
                     self.set_setting("/Settings/AdBlock/LastKnownHash", current_hash)
-                    AdBlockUtils.log_info("AdBlock-Liste aktualisiert.")
+                    log_info("AdBlock-Liste aktualisiert.")
                 else:
-                    AdBlockUtils.log_info("Keine Änderungen in der AdBlock-Liste.")
+                    log_info("Keine Änderungen in der AdBlock-Liste.")
                 self.DownloadFinished()
 
-    async def configure_dnsmasq(self):
+    def configure_dnsmasq(self):
+        """Konfiguriert dnsmasq basierend auf den AdBlock-Einstellungen."""
         if not self.is_configuring:
             with self.configure_lock:
                 self.ConfigureDnsmasqStarted()
@@ -163,14 +257,14 @@ class AdBlockService(dbus.service.Object):
                 if self.get_setting("/Settings/AdBlock/IPv6Enabled"):
                     new_config += "enable-ra\n"
 
-                async with aiofiles.open(dnsmasq_config_path, 'w') as file:
-                    await file.write(new_config)
-                await asyncio.to_thread(self.restart_dnsmasq)
+                with open(dnsmasq_config_path, 'w') as file:
+                    file.write(new_config)
+                self.restart_dnsmasq()
                 self.ConfigureDnsmasqFinished()
 
     def restart_dnsmasq(self):
         os.system("/etc/init.d/dnsmasq restart")
-        AdBlockUtils.log_info("dnsmasq neu gestartet.")
+        log_info("dnsmasq neu gestartet.")
 
     def schedule_next_update(self):
         if self.update_interval == "daily":
@@ -179,11 +273,11 @@ class AdBlockService(dbus.service.Object):
             self.next_update += timedelta(days=7)
         elif self.update_interval == "monthly":
             self.next_update += timedelta(days=30)
-        AdBlockUtils.log_info(f"Nächstes Update geplant für {self.next_update}")
+        log_info(f"Nächstes Update geplant für {self.next_update}")
 
     def check_for_updates(self):
         if datetime.now() >= self.next_update and self.adblock_enabled:
-            asyncio.run(self.update_adblock_list())
+            self.update_adblock_list()
             self.schedule_next_update()
 
         interval = 86400

@@ -1,65 +1,37 @@
-import subprocess
-import ipaddress
-import logging
+import os
+import hashlib
 import requests
 import aiofiles
-import asyncio
-import hashlib
-from vedbus import VeDbusService, VeDbusItemExport, VeDbusItemImport
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from adblock_utils import get_network_settings, calculate_hash, convert_to_dnsmasq_format
 
 def get_network_settings():
-    default_gateway = None
-    dns_server = None
-    ip_range_start = None
-    ip_range_end = None
-
     try:
-        result = subprocess.run(['ip', 'route'], capture_output=True, text=True)
-        for line in result.stdout.splitlines():
-            if 'default' in line:
-                parts = line.split()
-                default_gateway = parts[2]
-                break
+        # Bestimmen Sie das Standard-Gateway
+        with os.popen("ip route | grep default | awk '{print $3}'") as stream:
+            default_gateway = stream.read().strip()
 
-        result = subprocess.run(['ifconfig'], capture_output=True, text=True)
-        ip_address = None
-        netmask = None
-        for line in result.stdout.splitlines():
-            if 'inet ' in line and 'broadcast' in line:
-                parts = line.split()
-                ip_address = parts[1]
-                netmask = parts[3]
-                break
+        # Bestimmen Sie den DNS-Server
+        with os.popen("grep 'nameserver' /etc/resolv.conf | awk '{print $2}'") as stream:
+            dns_server = stream.read().strip()
 
-        if ip_address and netmask:
-            network = ipaddress.IPv4Network(f"{ip_address}/{netmask}", strict=False)
-            ip_range_start = str(network.network_address + 100)
-            ip_range_end = str(network.network_address + 200)
-            dns_server = ip_address
+        # Bestimmen Sie die IP-Range (Beispiel für eine typische lokale Netzwerk-Konfiguration)
+        ip_range_start = default_gateway[:-1] + "100"  # Annahme: 192.168.1.1 -> 192.168.1.100
+        ip_range_end = default_gateway[:-1] + "200"  # Annahme: 192.168.1.1 -> 192.168.1.200
 
-        if dns_server is None:
-            result = subprocess.run(['nmcli', 'dev', 'show'], capture_output=True, text=True)
-            for line in result.stdout.splitlines():
-                if 'IP4.DNS' in line:
-                    dns_server = line.split()[-1]
-                    break
-
+        return {
+            "default_gateway": default_gateway or "192.168.1.1",
+            "dns_server": dns_server or default_gateway or "192.168.1.1",
+            "ip_range_start": ip_range_start,
+            "ip_range_end": ip_range_end
+        }
     except Exception as e:
-        logger.error(f"Fehler beim Ermitteln der Netzwerkeinstellungen: {e}")
-
-    if default_gateway is None:
-        default_gateway = "192.168.1.1"
-    if dns_server is None:
-        dns_server = "192.168.1.1"
-    if ip_range_start is None:
-        ip_range_start = "192.168.1.100"
-    if ip_range_end is None:
-        ip_range_end = "192.168.1.200"
-
-    return ip_range_start, ip_range_end, default_gateway, dns_server
+        # Falls ein Fehler auftritt, verwenden Sie Standardwerte
+        return {
+            "default_gateway": "192.168.1.1",
+            "dns_server": "192.168.1.1",
+            "ip_range_start": "192.168.1.100",
+            "ip_range_end": "192.168.1.200"
+        }
 
 def calculate_hash(content):
     return hashlib.sha256(content.encode('utf-8')).hexdigest()
@@ -75,40 +47,25 @@ def convert_to_dnsmasq_format(lines):
                 converted_lines.append(converted_line)
     return converted_lines
 
-async def update_adblock_list(service):
-    adblock_list_url = service.get_setting("/Settings/AdBlock/AdListURL")
-    last_known_hash = service.get_setting("/Settings/AdBlock/LastKnownHash")
-
+async def download_adblock_list(url):
     try:
-        response = await asyncio.to_thread(requests.get, adblock_list_url, timeout=10)
+        response = await asyncio.to_thread(requests.get, url, timeout=10)
         response.raise_for_status()
-        current_hash = calculate_hash(response.text)
-        if current_hash != last_known_hash:
-            converted_list = convert_to_dnsmasq_format(response.text.splitlines())
-            async with aiofiles.open(service.local_file_path, 'w') as file:
-                await file.write("\n".join(converted_list))
-            service.set_setting("/Settings/AdBlock/LastKnownHash", current_hash)
-            logger.info("AdBlock-Liste aktualisiert.")
-        else:
-            logger.info("Keine Änderungen in der AdBlock-Liste.")
+        return response.text
     except requests.exceptions.RequestException as e:
-        logger.error(f"Fehler beim Herunterladen der AdBlock-Liste: {e}")
+        logger.error(f"Fehler beim Herunterladen der AdBlock-Liste von {url}: {e}")
+        return None
 
-async def configure_dnsmasq(service):
-    new_config = f"conf-file={service.static_dnsmasq_config_path}\n"
+async def save_combined_hosts(lines, path):
+    async with aiofiles.open(path, 'w') as file:
+        await file.write("\n".join(lines))
 
-    if service.get_setting("/Settings/AdBlock/Enabled"):
-        new_config += f"conf-file={service.local_file_path}\n"
-    if service.get_setting("/Settings/AdBlock/DHCPEnabled"):
-        dhcp_config = (
-            f"dhcp-range={service.get_setting('/Settings/AdBlock/IPRangeStart')},"
-            f"{service.get_setting('/Settings/AdBlock/IPRangeEnd')},12h\n"
-            f"dhcp-option=option:router,{service.get_setting('/Settings/AdBlock/DefaultGateway')}\n"
-            f"dhcp-option=option:dns-server,{service.get_setting('/Settings/AdBlock/DNSServer')}\n"
-        )
-        new_config += dhcp_config
+async def read_hosts_file(path):
+    if os.path.exists(path):
+        async with aiofiles.open(path, 'r') as file:
+            return await file.readlines()
+    return []
 
-    async with aiofiles.open(service.dnsmasq_config_path, 'w') as file:
-        await file.write(new_config)
-    await asyncio.to_thread(subprocess.run, ["/etc/init.d/dnsmasq", "restart"])
-    logger.info("dnsmasq neu gestartet.")
+async def write_hosts_file(path, lines):
+    async with aiofiles.open(path, 'w') as file:
+        await file.writelines(lines)

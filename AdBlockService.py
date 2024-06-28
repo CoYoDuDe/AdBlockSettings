@@ -119,7 +119,8 @@ class AdBlockService(dbus.service.Object):
         self.is_configuring = False
         self.is_downloading = False
 
-        self.set_default_settings()
+        # Standardwerte nur setzen, wenn sie initial None sind
+        self.check_and_set_default_settings()
 
     def get_setting(self, path):
         try:
@@ -139,7 +140,7 @@ class AdBlockService(dbus.service.Object):
         except Exception as e:
             log_error(f"Fehler beim Aktualisieren des D-Bus Wertes: {e}")
 
-    def set_default_settings(self):
+    def check_and_set_default_settings(self):
         network_settings = get_network_settings()
         settings = {
             "/Settings/AdBlock/BlocklistURLs": ["https://example.com/adlist.txt"],
@@ -158,7 +159,7 @@ class AdBlockService(dbus.service.Object):
         for path, default in settings.items():
             current_value = self.get_setting(path)
             log_info(f"Überprüfe Pfad {path} mit aktuellem Wert: {current_value}")
-            if current_value in [None, ""]:
+            if current_value in [None, "", []]:
                 self.set_setting(path, default)
             else:
                 log_info(f"Wert für Pfad {path} im D-Bus beibehalten: {current_value}")

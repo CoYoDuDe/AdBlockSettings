@@ -9,6 +9,9 @@ MbPage {
     property string settingsPrefix: "com.victronenergy.settings/Settings/AdBlock"
     property string servicePrefix: "com.victronenergy.adblock"
 
+    property bool isCurrentItem: root.ListView.isCurrentItem
+    property MbStyle style: MbStyle { isCurrentItem: root.ListView.isCurrentItem }
+
     model: VisibleItemModel {
         MbSwitch {
             id: adBlockEnabledSwitch
@@ -85,25 +88,19 @@ MbPage {
             }
         }
 
-        MbButton {
-            description: qsTr("Manage Blocklist URLs")
-            onClicked: {
-                pageStack.push(Qt.resolvedUrl("PageSettingsAdBlockBlocklistURLs.qml"))
-            }
+        MbSubMenu {
+            description: qsTr("Whitelist")
+            subpage: Component { PageSettingsAdBlockWhitelist {} }
         }
 
-        MbButton {
-            description: qsTr("Manage Whitelist")
-            onClicked: {
-                pageStack.push(Qt.resolvedUrl("PageSettingsAdBlockWhitelist.qml"))
-            }
+        MbSubMenu {
+            description: qsTr("Blacklist")
+            subpage: Component { PageSettingsAdBlockBlacklist {} }
         }
 
-        MbButton {
-            description: qsTr("Manage Blacklist")
-            onClicked: {
-                pageStack.push(Qt.resolvedUrl("PageSettingsAdBlockBlacklist.qml"))
-            }
+        MbSubMenu {
+            description: qsTr("AdBlock URLs")
+            subpage: Component { PageSettingsAdBlockBlocklistURLs {} }
         }
     }
 

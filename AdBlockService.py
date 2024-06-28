@@ -159,7 +159,7 @@ class AdBlockService(dbus.service.Object):
         for path, default in settings.items():
             current_value = self.get_setting(path)
             log_info(f"Überprüfe Pfad {path} mit aktuellem Wert: {current_value}")
-            if current_value in [None, "", []]:
+            if current_value is None or (isinstance(current_value, (str, list)) and not current_value):
                 self.set_setting(path, default)
             else:
                 log_info(f"Wert für Pfad {path} im D-Bus beibehalten: {current_value}")

@@ -2,30 +2,63 @@ import os
 import hashlib
 import requests
 import aiofiles
-from adblock_utils import get_network_settings, calculate_hash, convert_to_dnsmasq_format
+import subprocess
+import netifaces
+import logging
+import asyncio
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def log_info(message):
+    logger.info(message)
+
+def log_error(message):
+    logger.error(message)
+
+def get_default_gateway():
+    try:
+        gateways = netifaces.gateways()
+        default_gateway = gateways['default'][netifaces.AF_INET][0]
+        return default_gateway
+    except Exception as e:
+        log_error(f"Fehler beim Ermitteln des Standard-Gateways: {e}")
+        return "192.168.1.1"
+
+def get_local_ip():
+    try:
+        interfaces = netifaces.interfaces()
+        for interface in interfaces:
+            addresses = netifaces.ifaddresses(interface)
+            if netifaces.AF_INET in addresses:
+                ipv4_info = addresses[netifaces.AF_INET][0]
+                ip_address = ipv4_info['addr']
+                return ip_address
+    except Exception as e:
+        log_error(f"Fehler beim Ermitteln der lokalen IP-Adresse: {e}")
+        return "192.168.1.1"
+
+def restart_service(service_name):
+    try:
+        subprocess.run(["systemctl", "restart", service_name], check=True)
+        log_info(f"Service {service_name} wurde erfolgreich neu gestartet.")
+    except subprocess.CalledProcessError as e:
+        log_error(f"Fehler beim Neustarten des Service {service_name}: {e}")
 
 def get_network_settings():
     try:
-        # Bestimmen Sie das Standard-Gateway
-        with os.popen("ip route | grep default | awk '{print $3}'") as stream:
-            default_gateway = stream.read().strip()
-
-        # Bestimmen Sie den DNS-Server
-        with os.popen("grep 'nameserver' /etc/resolv.conf | awk '{print $2}'") as stream:
-            dns_server = stream.read().strip()
-
-        # Bestimmen Sie die IP-Range (Beispiel für eine typische lokale Netzwerk-Konfiguration)
-        ip_range_start = default_gateway[:-1] + "100"  # Annahme: 192.168.1.1 -> 192.168.1.100
-        ip_range_end = default_gateway[:-1] + "200"  # Annahme: 192.168.1.1 -> 192.168.1.200
-
+        default_gateway = get_default_gateway()
+        local_ip = get_local_ip()
+        ip_range_start = default_gateway[:-1] + "100"
+        ip_range_end = default_gateway[:-1] + "200"
         return {
-            "default_gateway": default_gateway or "192.168.1.1",
-            "dns_server": dns_server or default_gateway or "192.168.1.1",
+            "default_gateway": default_gateway,
+            "dns_server": local_ip,
             "ip_range_start": ip_range_start,
             "ip_range_end": ip_range_end
         }
     except Exception as e:
-        # Falls ein Fehler auftritt, verwenden Sie Standardwerte
+        log_error(f"Fehler beim Ermitteln der Netzwerkeinstellungen: {e}")
         return {
             "default_gateway": "192.168.1.1",
             "dns_server": "192.168.1.1",
@@ -53,7 +86,7 @@ async def download_adblock_list(url):
         response.raise_for_status()
         return response.text
     except requests.exceptions.RequestException as e:
-        logger.error(f"Fehler beim Herunterladen der AdBlock-Liste von {url}: {e}")
+        log_error(f"Fehler beim Herunterladen der AdBlock-Liste von {url}: {e}")
         return None
 
 async def save_combined_hosts(lines, path):

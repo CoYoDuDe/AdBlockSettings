@@ -56,13 +56,6 @@ MbPage {
             item.bind: Utils.path(settingsPrefix, "/DNSServer")
         }
 
-        MbEditBox {
-            id: adListURLBox
-            description: qsTr("AdList URL")
-            maximumLength: 100
-            item.bind: Utils.path(settingsPrefix, "/AdListURL")
-        }
-
         MbItemOptions {
             id: updateIntervalOption
             description: qsTr("BlockList Update Interval")
@@ -89,6 +82,27 @@ MbPage {
             value: qsTr("Apply")
             onClicked: {
                 adBlockApplySettingsTrigger.setValue(true);
+            }
+        }
+
+        MbButton {
+            description: qsTr("Manage Blocklist URLs")
+            onClicked: {
+                pageStack.push(Qt.resolvedUrl("PageBlocklistURLs.qml"))
+            }
+        }
+
+        MbButton {
+            description: qsTr("Manage Whitelist")
+            onClicked: {
+                pageStack.push(Qt.resolvedUrl("PageWhitelist.qml"))
+            }
+        }
+
+        MbButton {
+            description: qsTr("Manage Blacklist")
+            onClicked: {
+                pageStack.push(Qt.resolvedUrl("PageBlacklist.qml"))
             }
         }
     }

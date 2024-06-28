@@ -1,4 +1,4 @@
 /opt/victronenergy/gui/qml/PageSettingsAdBlock.qml
-/opt/victronenergy/gui/qml/PageBlocklistURLs.qml
-/opt/victronenergy/gui/qml/PageWhitelist.qml
-/opt/victronenergy/gui/qml/PageBlacklist.qml
+/opt/victronenergy/gui/qml/PageSettingsAdBlockBlocklistURLs.qml
+/opt/victronenergy/gui/qml/PageSettingsAdBlockWhitelist.qml
+/opt/victronenergy/gui/qml/PageSettingsAdBlockBlacklist.qml

@@ -13,7 +13,9 @@ import threading
 from datetime import datetime, timedelta
 from gi.repository import GLib
 from pathlib import Path
-import netifaces
+import socket
+import fcntl
+import struct
 import logging
 
 # Pfad zu den benötigten Bibliotheken hinzufügen
@@ -33,22 +35,25 @@ def log_error(message):
 
 def get_default_gateway():
     try:
-        gateways = netifaces.gateways()
-        default_gateway = gateways['default'][netifaces.AF_INET][0]
-        return default_gateway
+        with open('/proc/net/route') as f:
+            for line in f:
+                fields = line.strip().split()
+                if fields[1] != '00000000' or not int(fields[3], 16) & 2:
+                    continue
+
+                return socket.inet_ntoa(struct.pack("<L", int(fields[2], 16)))
     except Exception as e:
         log_error(f"Fehler beim Ermitteln des Standard-Gateways: {e}")
         return "192.168.1.1"
 
-def get_local_ip():
+def get_local_ip(ifname):
     try:
-        interfaces = netifaces.interfaces()
-        for interface in interfaces:
-            addresses = netifaces.ifaddresses(interface)
-            if netifaces.AF_INET in addresses:
-                ipv4_info = addresses[netifaces.AF_INET][0]
-                ip_address = ipv4_info['addr']
-                return ip_address
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        return socket.inet_ntoa(fcntl.ioctl(
+            s.fileno(),
+            0x8915,
+            struct.pack('256s', ifname[:15].encode('utf-8'))
+        )[20:24])
     except Exception as e:
         log_error(f"Fehler beim Ermitteln der lokalen IP-Adresse: {e}")
         return "192.168.1.1"
@@ -56,7 +61,7 @@ def get_local_ip():
 def get_network_settings():
     try:
         default_gateway = get_default_gateway()
-        local_ip = get_local_ip()
+        local_ip = get_local_ip('eth0')
         ip_range_start = default_gateway.rsplit('.', 1)[0] + ".100"
         ip_range_end = default_gateway.rsplit('.', 1)[0] + ".200"
         return {
@@ -227,8 +232,8 @@ class AdBlockService(dbus.service.Object):
                     converted_list = self.convert_to_dnsmasq_format(combined_content.splitlines())
 
                     # Whitelist und Blacklist anwenden
-                    whitelist_entries = [f"address=/{entry}/" for entry in whitelist_urls]
-                    blacklist_entries = [f"address=/{entry}/#" for entry in blacklist_urls]
+                    whitelist_entries = [f"address=/{url}/" for url in whitelist_urls]
+                    blacklist_entries = [f"address=/{url}/#" for url in blacklist_urls]
                     converted_list.extend(whitelist_entries)
                     converted_list.extend(blacklist_entries)
 

@@ -4,7 +4,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 import asyncio
 import logging
 from gi.repository import GLib
-from adblock_utils import get_network_settings, update_adblock_list, configure_dnsmasq, VeDbusService, VeDbusItemExport, VeDbusItemImport
+from AdBlockUtils import get_network_settings, update_adblock_list, configure_dnsmasq, VeDbusService, VeDbusItemExport, VeDbusItemImport
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,6 +26,10 @@ class AdBlockService(dbus.service.Object):
         self.is_downloading = False
         self.download_lock = asyncio.Lock()
         self.configure_lock = asyncio.Lock()
+
+        self.local_file_path = '/etc/dnsmasq.d/adblock.conf'
+        self.dnsmasq_config_path = "/etc/dnsmasq.conf"
+        self.static_dnsmasq_config_path = "/etc/dnsmasq_static.conf"
 
         self.initialize_settings()
         self.update_interval = self.get_setting("/Settings/AdBlock/UpdateInterval")

@@ -4,9 +4,6 @@
   "max": 1
 }
 {
-  "path": "/Settings/AdBlock/AdListURL"
-}
-{
   "path": "/Settings/AdBlock/UpdateInterval"
 }
 {

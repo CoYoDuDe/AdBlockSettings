@@ -155,7 +155,7 @@ class AdBlockService(dbus.service.Object):
 
         for path, default in settings.items():
             current_value = self.get_setting(path)
-            if current_value is None or current_value == "":
+            if current_value in [None, "", []]:
                 self.set_setting(path, default)
 
     def DownloadStarted(self):
@@ -243,9 +243,12 @@ class AdBlockService(dbus.service.Object):
             if self.get_setting("/Settings/AdBlock/Enabled"):
                 new_config += f"conf-file={local_file_path}\n"
             if self.get_setting("/Settings/AdBlock/DHCPEnabled"):
-                dhcp_config = f"dhcp-range={self.get_setting('/Settings/AdBlock/IPRangeStart')},{self.get_setting('/Settings/AdBlock/IPRangeEnd')},12h\n"
-                dhcp_config += f"dhcp-option=option:router,{self.get_setting('/Settings/AdBlock/DefaultGateway')}\n"
-                dhcp_config += f"dhcp-option=option:dns-server,{self.get_setting('/Settings/AdBlock/DNSServer')}\n"
+                dhcp_config = (
+                    f"dhcp-range={self.get_setting('/Settings/AdBlock/IPRangeStart')},"
+                    f"{self.get_setting('/Settings/AdBlock/IPRangeEnd')},12h\n"
+                    f"dhcp-option=option:router,{self.get_setting('/Settings/AdBlock/DefaultGateway')}\n"
+                    f"dhcp-option=option:dns-server,{self.get_setting('/Settings/AdBlock/DNSServer')}\n"
+                )
                 new_config += dhcp_config
             if self.get_setting("/Settings/AdBlock/IPv6Enabled"):
                 new_config += "enable-ra\n"

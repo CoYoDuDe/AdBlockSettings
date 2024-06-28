@@ -24,6 +24,7 @@ setup_rc_local() {
 case "$scriptAction" in
     INSTALL|CHECK)
         setup_rc_local
+        installAllServices
         ;;
     UNINSTALL)
         logMessage "Kein Uninstall-Skript definiert."

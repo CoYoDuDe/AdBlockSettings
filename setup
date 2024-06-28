@@ -25,6 +25,9 @@ case "$scriptAction" in
     INSTALL|CHECK)
         setup_rc_local
         installAllServices
+        if $filesUpdated; then
+            restartGui=true
+        fi
         ;;
     UNINSTALL)
         logMessage "Kein Uninstall-Skript definiert."

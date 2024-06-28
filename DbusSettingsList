@@ -1,46 +1,30 @@
 {
-  "path": "/Settings/AdBlock/Enabled",
-  "default": 0,
-  "min": 0,
-  "max": 1
+  "path": "/Settings/AdBlock/Enabled"
 }
 {
-  "path": "/Settings/AdBlock/AdListURL",
-  "default": "https://example.com/adlist.txt"
+  "path": "/Settings/AdBlock/AdListURL"
 }
 {
-  "path": "/Settings/AdBlock/UpdateInterval",
-  "default": "weekly"
+  "path": "/Settings/AdBlock/UpdateInterval"
 }
 {
-  "path": "/Settings/AdBlock/DefaultGateway",
-  "default": "192.168.1.1"
+  "path": "/Settings/AdBlock/DefaultGateway"
 }
 {
-  "path": "/Settings/AdBlock/DNSServer",
-  "default": "192.168.1.1"
+  "path": "/Settings/AdBlock/DNSServer"
 }
 {
-  "path": "/Settings/AdBlock/IPRangeStart",
-  "default": "192.168.1.100"
+  "path": "/Settings/AdBlock/IPRangeStart"
 }
 {
-  "path": "/Settings/AdBlock/IPRangeEnd",
-  "default": "192.168.1.200"
+  "path": "/Settings/AdBlock/IPRangeEnd"
 }
 {
-  "path": "/Settings/AdBlock/DHCPEnabled",
-  "default": 0,
-  "min": 0,
-  "max": 1
+  "path": "/Settings/AdBlock/DHCPEnabled"
 }
 {
-  "path": "/Settings/AdBlock/IPv6Enabled",
-  "default": 0,
-  "min": 0,
-  "max": 1
+  "path": "/Settings/AdBlock/IPv6Enabled"
 }
 {
-  "path": "/Settings/AdBlock/LastKnownHash",
-  "default": ""
+  "path": "/Settings/AdBlock/LastKnownHash"
 }

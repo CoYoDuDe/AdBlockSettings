@@ -160,6 +160,8 @@ class AdBlockService(dbus.service.Object):
             log_info(f"Überprüfe Pfad {path} mit aktuellem Wert: {current_value}")
             if current_value in [None, ""]:
                 self.set_setting(path, default)
+            else:
+                log_info(f"Wert für Pfad {path} im D-Bus beibehalten: {current_value}")
 
     def DownloadStarted(self):
         self.is_downloading = True
@@ -225,6 +227,7 @@ class AdBlockService(dbus.service.Object):
             if current_hash != last_known_hash:
                 converted_list = self.convert_to_dnsmasq_format(combined_content.splitlines())
 
+                # Whitelist und Blacklist anwenden
                 whitelist_entries = [f"address=/{url}/" for url in whitelist_urls]
                 blacklist_entries = [f"address=/{url}/#" for url in blacklist_urls]
                 converted_list.extend(whitelist_entries)

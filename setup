@@ -21,16 +21,22 @@ setup_rc_local() {
     chmod +x "$RC_LOCAL_FILE"
 }
 
+remove_rc_local() {
+    logMessage "Entferne Eintrag aus rc.local..."
+    if [ -f "$RC_LOCAL_FILE" ]; then
+        sed -i "/$RC_LOCAL_CONTENT/d" "$RC_LOCAL_FILE"
+    fi
+}
+
 case "$scriptAction" in
     INSTALL|CHECK)
         setup_rc_local
         installAllServices
-        if $filesUpdated; then
-            restartGui=true
-        fi
         ;;
     UNINSTALL)
-        logMessage "Kein Uninstall-Skript definiert."
+        logMessage "Deinstalliere AdBlockSettings..."
+        remove_rc_local
+        removeAllServices
         ;;
     *)
         logMessage "Keine spezifische Aktion angegeben."

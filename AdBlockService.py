@@ -40,20 +40,26 @@ def get_default_gateway():
                 fields = line.strip().split()
                 if fields[1] != '00000000' or not int(fields[3], 16) & 2:
                     continue
-
                 return socket.inet_ntoa(struct.pack("<L", int(fields[2], 16)))
     except Exception as e:
         log_error(f"Fehler beim Ermitteln des Standard-Gateways: {e}")
         return "192.168.1.1"
 
-def get_local_ip(ifname):
+def get_local_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        return socket.inet_ntoa(fcntl.ioctl(
-            s.fileno(),
-            0x8915,
-            struct.pack('256s', ifname[:15].encode('utf-8'))
-        )[20:24])
+        interfaces = [i[1] for i in socket.if_nameindex()]
+        for ifname in interfaces:
+            try:
+                ip_address = socket.inet_ntoa(fcntl.ioctl(
+                    s.fileno(),
+                    0x8915,
+                    struct.pack('256s', ifname[:15].encode('utf-8'))
+                )[20:24])
+                if ip_address != "127.0.0.1":
+                    return ip_address
+            except IOError:
+                continue
     except Exception as e:
         log_error(f"Fehler beim Ermitteln der lokalen IP-Adresse: {e}")
         return "192.168.1.1"
@@ -61,7 +67,7 @@ def get_local_ip(ifname):
 def get_network_settings():
     try:
         default_gateway = get_default_gateway()
-        local_ip = get_local_ip('eth0')
+        local_ip = get_local_ip()
         ip_range_start = default_gateway.rsplit('.', 1)[0] + ".100"
         ip_range_end = default_gateway.rsplit('.', 1)[0] + ".200"
         return {
@@ -112,15 +118,6 @@ class AdBlockService(dbus.service.Object):
 
         self.is_configuring = False
         self.is_downloading = False
-        self.download_lock = threading.Lock()
-        self.configure_lock = threading.Lock()
-
-        self.next_update = datetime.now()
-        self.update_interval = self.get_setting("/Settings/AdBlock/UpdateInterval")
-        self.adblock_enabled = self.get_setting("/Settings/AdBlock/Enabled")
-
-        if not os.path.exists(backup_dnsmasq_config_path):
-            shutil.copy(dnsmasq_config_path, backup_dnsmasq_config_path)
 
         self.set_default_settings()
 
@@ -180,19 +177,15 @@ class AdBlockService(dbus.service.Object):
     def start_download(self, path, value):
         if value:
             threading.Thread(target=self.update_adblock_list).start()
-            self.dbus_service[path] = False  # Setzt den Trigger zurück
+            self.dbus_service[path] = False
 
     def start_configure(self, path, value):
         if value:
             threading.Thread(target=self.update_adblock_list).start()
-        
-            # Wartet, bis der Download abgeschlossen ist
             while self.is_downloading:
                 time.sleep(1)
-
-            # Startet dann die Konfiguration
             threading.Thread(target=self.configure_dnsmasq).start()
-            self.dbus_service[path] = False  # Setzt den Trigger zurück
+            self.dbus_service[path] = False
 
     def calculate_hash(self, content):
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
@@ -209,84 +202,79 @@ class AdBlockService(dbus.service.Object):
         return converted_lines
 
     def update_adblock_list(self):
-        """Lädt die AdBlock-Liste herunter und aktualisiert die lokale Konfigurationsdatei."""
         if not self.is_downloading:
-            with self.download_lock:
-                self.DownloadStarted()
-                adblock_list_urls = self.get_setting("/Settings/AdBlock/BlocklistURLs")
-                whitelist_urls = self.get_setting("/Settings/AdBlock/Whitelist")
-                blacklist_urls = self.get_setting("/Settings/AdBlock/Blacklist")
-                last_known_hash = self.get_setting("/Settings/AdBlock/LastKnownHash")
+            self.DownloadStarted()
+            adblock_list_urls = self.get_setting("/Settings/AdBlock/BlocklistURLs")
+            whitelist_urls = self.get_setting("/Settings/AdBlock/Whitelist")
+            blacklist_urls = self.get_setting("/Settings/AdBlock/Blacklist")
+            last_known_hash = self.get_setting("/Settings/AdBlock/LastKnownHash")
 
-                combined_content = ""
-                for url in adblock_list_urls:
-                    try:
-                        response = requests.get(url.strip(), timeout=10)
-                        response.raise_for_status()
-                        combined_content += response.text + "\n"
-                    except requests.exceptions.RequestException as e:
-                        log_error(f"Fehler beim Herunterladen von {url}: {e}")
+            combined_content = ""
+            for url in adblock_list_urls:
+                try:
+                    response = requests.get(url.strip(), timeout=10)
+                    response.raise_for_status()
+                    combined_content += response.text + "\n"
+                except requests.exceptions.RequestException as e:
+                    log_error(f"Fehler beim Herunterladen von {url}: {e}")
 
-                current_hash = self.calculate_hash(combined_content)
-                if current_hash != last_known_hash:
-                    converted_list = self.convert_to_dnsmasq_format(combined_content.splitlines())
+            current_hash = self.calculate_hash(combined_content)
+            if current_hash != last_known_hash:
+                converted_list = self.convert_to_dnsmasq_format(combined_content.splitlines())
 
-                    # Whitelist und Blacklist anwenden
-                    whitelist_entries = [f"address=/{url}/" for url in whitelist_urls]
-                    blacklist_entries = [f"address=/{url}/#" for url in blacklist_urls]
-                    converted_list.extend(whitelist_entries)
-                    converted_list.extend(blacklist_entries)
+                whitelist_entries = [f"address=/{url}/" for url in whitelist_urls]
+                blacklist_entries = [f"address=/{url}/#" for url in blacklist_urls]
+                converted_list.extend(whitelist_entries)
+                converted_list.extend(blacklist_entries)
 
-                    with open(local_file_path, 'w') as file:
-                        file.write("\n".join(converted_list))
-                    self.set_setting("/Settings/AdBlock/LastKnownHash", current_hash)
-                    log_info("AdBlock-Liste aktualisiert.")
-                else:
-                    log_info("Keine Änderungen in der AdBlock-Liste.")
-                self.DownloadFinished()
+                with open(local_file_path, 'w') as file:
+                    file.write("\n".join(converted_list))
+                self.set_setting("/Settings/AdBlock/LastKnownHash", current_hash)
+                log_info("AdBlock-Liste aktualisiert.")
+            else:
+                log_info("Keine Änderungen in der AdBlock-Liste.")
+            self.DownloadFinished()
 
     def configure_dnsmasq(self):
-        """Konfiguriert dnsmasq basierend auf den AdBlock-Einstellungen."""
         if not self.is_configuring:
-            with self.configure_lock:
-                self.ConfigureDnsmasqStarted()
-                new_config = f"conf-file={static_dnsmasq_config_path}\n"
+            self.ConfigureDnsmasqStarted()
+            new_config = f"conf-file={static_dnsmasq_config_path}\n"
 
-                if self.get_setting("/Settings/AdBlock/Enabled"):
-                    new_config += f"conf-file={local_file_path}\n"
-                if self.get_setting("/Settings/AdBlock/DHCPEnabled"):
-                    dhcp_config = f"dhcp-range={self.get_setting('/Settings/AdBlock/IPRangeStart')},{self.get_setting('/Settings/AdBlock/IPRangeEnd')},12h\n"
-                    dhcp_config += f"dhcp-option=option:router,{self.get_setting('/Settings/AdBlock/DefaultGateway')}\n"
-                    dhcp_config += f"dhcp-option=option:dns-server,{self.get_setting('/Settings/AdBlock/DNSServer')}\n"
-                    new_config += dhcp_config
-                if self.get_setting("/Settings/AdBlock/IPv6Enabled"):
-                    new_config += "enable-ra\n"
+            if self.get_setting("/Settings/AdBlock/Enabled"):
+                new_config += f"conf-file={local_file_path}\n"
+            if self.get_setting("/Settings/AdBlock/DHCPEnabled"):
+                dhcp_config = f"dhcp-range={self.get_setting('/Settings/AdBlock/IPRangeStart')},{self.get_setting('/Settings/AdBlock/IPRangeEnd')},12h\n"
+                dhcp_config += f"dhcp-option=option:router,{self.get_setting('/Settings/AdBlock/DefaultGateway')}\n"
+                dhcp_config += f"dhcp-option=option:dns-server,{self.get_setting('/Settings/AdBlock/DNSServer')}\n"
+                new_config += dhcp_config
+            if self.get_setting("/Settings/AdBlock/IPv6Enabled"):
+                new_config += "enable-ra\n"
 
-                with open(dnsmasq_config_path, 'w') as file:
-                    file.write(new_config)
-                self.restart_dnsmasq()
-                self.ConfigureDnsmasqFinished()
+            with open(dnsmasq_config_path, 'w') as file:
+                file.write(new_config)
+            self.restart_dnsmasq()
+            self.ConfigureDnsmasqFinished()
 
     def restart_dnsmasq(self):
         os.system("/etc/init.d/dnsmasq restart")
         log_info("dnsmasq neu gestartet.")
 
     def schedule_next_update(self):
-        if self.update_interval == "daily":
+        update_interval = self.get_setting("/Settings/AdBlock/UpdateInterval")
+        self.next_update = datetime.now()
+        if update_interval == "daily":
             self.next_update += timedelta(days=1)
-        elif self.update_interval == "weekly":
-            self.next_update += timedelta(days=7)
-        elif self.update_interval == "monthly":
+        elif update_interval == "weekly":
+            self.next_update += timedelta(weeks=1)
+        elif update_interval == "monthly":
             self.next_update += timedelta(days=30)
         log_info(f"Nächstes Update geplant für {self.next_update}")
 
     def check_for_updates(self):
-        if datetime.now() >= self.next_update and self.adblock_enabled:
+        if datetime.now() >= self.next_update and self.get_setting("/Settings/AdBlock/Enabled"):
             self.update_adblock_list()
             self.schedule_next_update()
-
-        interval = 86400
-        threading.Timer(interval, self.check_for_updates).start()
+        threading.Timer(86400, self.check_for_updates).start()
 
 def main():
     bus = dbus.SystemBus()

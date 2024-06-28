@@ -1,17 +1,14 @@
---- PageSettings.qml.orig
-+++ PageSettings.qml
-@@ -202,6 +202,13 @@
-             description: qsTr("Wi-Fi")
-             property VeQuickItem accessPoint: VeQuickItem { uid: "dbus/com.victronenergy.platform/Services/AccessPoint/Enabled" }
-             subpage: accessPoint.value !== undefined ? wifiWithAP : wifiWithoutAP
-             Component { id: wifiWithoutAP; PageSettingsWifi {} }
-             Component { id: wifiWithAP; PageSettingsWifiWithAccessPoint {} }
-         }
-+//////// added for AdBlockSettings
-+        MbSubMenu
-+        {
-+            description: qsTr("AdBlock Settings")
-+            subpage: Component { PageSettingsAdBlock {} }
-+        }
-     }
- }
+--- /data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml.orig
++++ /data/AdBlockSettings/FileSets/PatchSource/PageSettings.qml
+@@ -123,6 +123,11 @@
+ 			Component { id: wifiWithoutAP; PageSettingsWifi {} }
+ 			Component { id: wifiWithAP; PageSettingsWifiWithAccessPoint {} }
+ 		}
++////////// added for AdBlockSettings
++		MbSubMenu {
++			description: qsTr("AdBlock Settings")
++			subpage: Component { PageSettingsAdBlock {} }
++		}
+ 
+ 		MbSubMenu {
+ 			description: qsTr("GSM modem")

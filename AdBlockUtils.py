@@ -111,3 +111,4 @@ async def configure_dnsmasq(service):
     async with aiofiles.open(service.dnsmasq_config_path, 'w') as file:
         await file.write(new_config)
     await asyncio.to_thread(subprocess.run, ["/etc/init.d/dnsmasq", "restart"])
+    logger.info("dnsmasq neu gestartet.")

@@ -88,21 +88,21 @@ MbPage {
         MbButton {
             description: qsTr("Manage Blocklist URLs")
             onClicked: {
-                pageStack.push(Qt.resolvedUrl("PageBlocklistURLs.qml"))
+                pageStack.push(Qt.resolvedUrl("PageSettingsAdBlockBlocklistURLs.qml"))
             }
         }
 
         MbButton {
             description: qsTr("Manage Whitelist")
             onClicked: {
-                pageStack.push(Qt.resolvedUrl("PageWhitelist.qml"))
+                pageStack.push(Qt.resolvedUrl("PageSettingsAdBlockWhitelist.qml"))
             }
         }
 
         MbButton {
             description: qsTr("Manage Blacklist")
             onClicked: {
-                pageStack.push(Qt.resolvedUrl("PageBlacklist.qml"))
+                pageStack.push(Qt.resolvedUrl("PageSettingsAdBlockBlacklist.qml"))
             }
         }
     }

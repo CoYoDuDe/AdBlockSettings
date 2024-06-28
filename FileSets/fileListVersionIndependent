@@ -2,7 +2,3 @@
 /opt/victronenergy/gui/qml/PageBlocklistURLs.qml
 /opt/victronenergy/gui/qml/PageWhitelist.qml
 /opt/victronenergy/gui/qml/PageBlacklist.qml
-/data/AdBlockSettings/AdBlockService.py
-/data/AdBlockSettings/AdBlockUtils.py
-/data/AdBlockSettings/utils.js
-/data/AdBlockSettings/DbusSettingsList

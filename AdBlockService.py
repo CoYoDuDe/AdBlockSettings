@@ -124,7 +124,9 @@ class AdBlockService(dbus.service.Object):
     def get_setting(self, path):
         try:
             item = VeDbusItemImport(self.bus, 'com.victronenergy.settings', path)
-            return item.get_value()
+            value = item.get_value()
+            log_info(f"Aktueller Wert für Pfad {path}: {value}")
+            return value
         except Exception as e:
             log_error(f"DBus Fehler: {e}")
             return None
@@ -155,7 +157,8 @@ class AdBlockService(dbus.service.Object):
 
         for path, default in settings.items():
             current_value = self.get_setting(path)
-            if current_value in [None, "", []]:
+            log_info(f"Überprüfe Pfad {path} mit aktuellem Wert: {current_value}")
+            if current_value in [None, ""]:
                 self.set_setting(path, default)
 
     def DownloadStarted(self):
@@ -243,12 +246,9 @@ class AdBlockService(dbus.service.Object):
             if self.get_setting("/Settings/AdBlock/Enabled"):
                 new_config += f"conf-file={local_file_path}\n"
             if self.get_setting("/Settings/AdBlock/DHCPEnabled"):
-                dhcp_config = (
-                    f"dhcp-range={self.get_setting('/Settings/AdBlock/IPRangeStart')},"
-                    f"{self.get_setting('/Settings/AdBlock/IPRangeEnd')},12h\n"
-                    f"dhcp-option=option:router,{self.get_setting('/Settings/AdBlock/DefaultGateway')}\n"
-                    f"dhcp-option=option:dns-server,{self.get_setting('/Settings/AdBlock/DNSServer')}\n"
-                )
+                dhcp_config = f"dhcp-range={self.get_setting('/Settings/AdBlock/IPRangeStart')},{self.get_setting('/Settings/AdBlock/IPRangeEnd')},12h\n"
+                dhcp_config += f"dhcp-option=option:router,{self.get_setting('/Settings/AdBlock/DefaultGateway')}\n"
+                dhcp_config += f"dhcp-option=option:dns-server,{self.get_setting('/Settings/AdBlock/DNSServer')}\n"
                 new_config += dhcp_config
             if self.get_setting("/Settings/AdBlock/IPv6Enabled"):
                 new_config += "enable-ra\n"
@@ -263,21 +263,21 @@ class AdBlockService(dbus.service.Object):
         log_info("dnsmasq neu gestartet.")
 
     def schedule_next_update(self):
-        update_interval = self.get_setting("/Settings/AdBlock/UpdateInterval")
-        self.next_update = datetime.now()
-        if update_interval == "daily":
+        if self.update_interval == "daily":
             self.next_update += timedelta(days=1)
-        elif update_interval == "weekly":
-            self.next_update += timedelta(weeks=1)
-        elif update_interval == "monthly":
+        elif self.update_interval == "weekly":
+            self.next_update += timedelta(days=7)
+        elif self.update_interval == "monthly":
             self.next_update += timedelta(days=30)
         log_info(f"Nächstes Update geplant für {self.next_update}")
 
     def check_for_updates(self):
-        if datetime.now() >= self.next_update and self.get_setting("/Settings/AdBlock/Enabled"):
+        if datetime.now() >= self.next_update and self.adblock_enabled:
             self.update_adblock_list()
             self.schedule_next_update()
-        threading.Timer(86400, self.check_for_updates).start()
+
+        interval = 86400
+        threading.Timer(interval, self.check_for_updates).start()
 
 def main():
     bus = dbus.SystemBus()

@@ -123,6 +123,11 @@ MbPage {
 			Component { id: wifiWithoutAP; PageSettingsWifi {} }
 			Component { id: wifiWithAP; PageSettingsWifiWithAccessPoint {} }
 		}
+////////// added for AdBlockSettings
+		MbSubMenu {
+			description: qsTr("AdBlock Settings")
+			subpage: Component { PageSettingsAdBlock {} }
+		}
 
 		MbSubMenu {
 			description: qsTr("GSM modem")

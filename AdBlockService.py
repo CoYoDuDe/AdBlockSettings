@@ -228,7 +228,46 @@ class AdBlockService(dbus.service.Object):
                 if current_hash != last_known_hash:
                     converted_list = convert_to_dnsmasq_format(combined_content.splitlines())
 
-                    whitelist_entries = []
+                    whitelist_entries = [f"address=/{url}/" for url in whitelist_urls]
+                    blacklist_entries = [f"address=/{url}/#" for url in blacklist_urls]
+                    converted_list.extend(whitelist_entries)
+                    converted_list.extend(blacklist_entries)
 
-# Zusätzlicher Code zur Verarbeitung der Whitelist- und Blacklist-URLs
+                    with open('/etc/dnsmasq.d/adblock.conf', 'w') as f:
+                        f.write('\n'.join(converted_list))
 
+                    self.set_setting("/Settings/AdBlock/LastKnownHash", current_hash)
+                self.DownloadFinished()
+        else:
+            log_info("Download is already in progress.")
+
+    def configure_dnsmasq(self):
+        if not self.is_configuring:
+            with self.configure_lock:
+                self.ConfigureDnsmasqStarted()
+                try:
+                    if os.path.exists(static_dnsmasq_config_path):
+                        shutil.copy(static_dnsmasq_config_path, dnsmasq_config_path)
+                    else:
+                        shutil.copy(backup_dnsmasq_config_path, dnsmasq_config_path)
+
+                    with open(dnsmasq_config_path, 'a') as f:
+                        f.write(f"\nconf-file={local_file_path}\n")
+
+                    os.system('systemctl restart dnsmasq')
+                    self.ConfigureDnsmasqFinished()
+                except Exception as e:
+                    log_error(f"Fehler beim Konfigurieren von dnsmasq: {e}")
+                    self.ConfigureDnsmasqFinished()
+        else:
+            log_info("Configuration is already in progress.")
+
+def main():
+    DBusGMainLoop(set_as_default=True)
+    bus = dbus.SystemBus()
+    adblock_service = AdBlockService(bus)
+
+    GLib.MainLoop().run()
+
+if __name__ == "__main__":
+    main()

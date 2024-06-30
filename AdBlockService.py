@@ -17,6 +17,7 @@ import socket
 import fcntl
 import struct
 import logging
+import time
 
 # Pfad zu den benötigten Bibliotheken hinzufügen
 sys.path.insert(1, '/opt/victronenergy/dbus-systemcalc-py/ext/velib_python')
@@ -142,9 +143,14 @@ class AdBlockService(dbus.service.Object):
 
     def set_setting(self, path, value):
         try:
-            item = VeDbusItemExport(self.bus, path, writeable=True)
-            item.local_set_value(value)
-            log_info(f"Wert für Pfad {path} im D-Bus erfolgreich aktualisiert: {value}")
+            item = VeDbusItemImport(self.bus, 'com.victronenergy.settings', path)
+            item.set_value(value)
+            time.sleep(0.5)  # Wartezeit erhöhen, um sicherzustellen, dass der Wert gesetzt wird
+            new_value = self.get_setting(path)
+            if new_value != value:
+                log_error(f"Fehler beim Setzen des Standardwerts für Pfad {path}. Erwartet: {value}, Aktuell: {new_value}")
+            else:
+                log_info(f"Wert für Pfad {path} im D-Bus erfolgreich aktualisiert: {value}")
         except Exception as e:
             log_error(f"Fehler beim Aktualisieren des D-Bus Wertes für Pfad {path}: {e}")
 

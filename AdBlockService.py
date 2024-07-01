@@ -161,7 +161,8 @@ class AdBlockService(dbus.service.Object):
         array_paths = [
             "/Settings/AdBlock/BlocklistURLs",
             "/Settings/AdBlock/Whitelist",
-            "/Settings/AdBlock/Blacklist"
+            "/Settings/AdBlock/Blacklist",
+            "/Settings/AdBlock/LastKnownHashes"
         ]
         for path in array_paths:
             value = self.get_setting(path)
@@ -183,7 +184,7 @@ class AdBlockService(dbus.service.Object):
             "/Settings/AdBlock/IPRangeEnd": network_settings["ip_range_end"],
             "/Settings/AdBlock/DHCPEnabled": 0,
             "/Settings/AdBlock/IPv6Enabled": 0,
-            "/Settings/AdBlock/LastKnownHash": "",
+            "/Settings/AdBlock/LastKnownHashes": [],
             "/Settings/AdBlock/Whitelist": [],
             "/Settings/AdBlock/Blacklist": []
         }
@@ -232,7 +233,7 @@ class AdBlockService(dbus.service.Object):
                 adblock_list_urls = self.get_setting("/Settings/AdBlock/BlocklistURLs")
                 whitelist_urls = self.get_setting("/Settings/AdBlock/Whitelist")
                 blacklist_urls = self.get_setting("/Settings/AdBlock/Blacklist")
-                last_known_hash = self.get_setting("/Settings/AdBlock/LastKnownHash")
+                last_known_hash = self.get_setting("/Settings/AdBlock/LastKnownHashes")
 
                 if adblock_list_urls is None:
                     log_error("AdBlock-Liste ist leer. Abbruch.")
@@ -260,7 +261,7 @@ class AdBlockService(dbus.service.Object):
                     with open('/etc/dnsmasq.d/adblock.conf', 'w') as f:
                         f.write('\n'.join(converted_list))
 
-                    self.set_setting("/Settings/AdBlock/LastKnownHash", current_hash)
+                    self.set_setting("/Settings/AdBlock/LastKnownHashes", current_hash)
                 self.DownloadFinished()
         else:
             log_info("Download is already in progress.")

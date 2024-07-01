@@ -129,6 +129,7 @@ class AdBlockService(dbus.service.Object):
         if not os.path.exists(backup_dnsmasq_config_path):
             shutil.copy(dnsmasq_config_path, backup_dnsmasq_config_path)
 
+        self.ensure_array_paths()
         self.set_default_settings()
 
     def get_setting(self, path):
@@ -143,6 +144,8 @@ class AdBlockService(dbus.service.Object):
 
     def set_setting(self, path, value):
         try:
+            if isinstance(value, list):
+                value = dbus.Array(value, signature='s')
             item = VeDbusItemImport(self.bus, 'com.victronenergy.settings', path)
             item.set_value(value)
             time.sleep(0.5)  # Wartezeit erhöhen, um sicherzustellen, dass der Wert gesetzt wird
@@ -153,6 +156,21 @@ class AdBlockService(dbus.service.Object):
                 log_info(f"Wert für Pfad {path} im D-Bus erfolgreich aktualisiert: {value}")
         except Exception as e:
             log_error(f"Fehler beim Aktualisieren des D-Bus Wertes für Pfad {path}: {e}")
+
+    def ensure_array_paths(self):
+        array_paths = [
+            "/Settings/AdBlock/BlocklistURLs",
+            "/Settings/AdBlock/Whitelist",
+            "/Settings/AdBlock/Blacklist"
+        ]
+        for path in array_paths:
+            value = self.get_setting(path)
+            if value is None:
+                try:
+                    self.dbus_service.add_path(path, dbus.Array([], signature='s'), writeable=True)
+                    log_info(f"Pfad {path} wurde im D-Bus angelegt")
+                except Exception as e:
+                    log_error(f"Fehler beim Anlegen des Pfads {path}: {e}")
 
     def set_default_settings(self):
         network_settings = get_network_settings()
@@ -234,8 +252,8 @@ class AdBlockService(dbus.service.Object):
                 if current_hash != last_known_hash:
                     converted_list = convert_to_dnsmasq_format(combined_content.splitlines())
 
-                    whitelist_entries = [f"address=/{url}/" for url in whitelist_urls]
-                    blacklist_entries = [f"address=/{url}/#" for url in blacklist_urls]
+                    whitelist_entries = [f"address=/{url}/" for url in (whitelist_urls or [])]
+                    blacklist_entries = [f"address=/{url}/#" for url in (blacklist_urls or [])]
                     converted_list.extend(whitelist_entries)
                     converted_list.extend(blacklist_entries)
 

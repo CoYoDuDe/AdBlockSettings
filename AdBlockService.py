@@ -34,6 +34,51 @@ def log_info(message):
 def log_error(message):
     logger.error(message)
 
+def wrap_dbus_value(value):
+    if value is None:
+        return None
+    if isinstance(value, float):
+        return dbus.Double(value, variant_level=1)
+    if isinstance(value, bool):
+        return dbus.Boolean(value, variant_level=1)
+    if isinstance(value, int):
+        try:
+            return dbus.Int32(value, variant_level=1)
+        except OverflowError:
+            return dbus.Int64(value, variant_level=1)
+    if isinstance(value, str):
+        return dbus.String(value, variant_level=1)
+    if isinstance(value, list):
+        if len(value) == 0:
+            return dbus.Array([], signature='u', variant_level=1)
+        return dbus.Array([wrap_dbus_value(x) for x in value], variant_level=1)
+    if isinstance(value, dict):
+        return dbus.Dictionary({k: wrap_dbus_value(v) for k, v in value.items()}, variant_level=1)
+    return value
+
+def unwrap_dbus_value(val):
+    dbus_int_types = (dbus.Int32, dbus.UInt32, dbus.Byte, dbus.Int16, dbus.UInt16, dbus.UInt32, dbus.Int64, dbus.UInt64)
+    if isinstance(val, dbus_int_types):
+        return int(val)
+    if isinstance(val, dbus.Double):
+        return float(val)
+    if isinstance(val, dbus.Array):
+        v = [unwrap_dbus_value(x) for x in val]
+        return None if len(v) == 0 else v
+    if isinstance(val, (dbus.Signature, dbus.String)):
+        return str(val)
+    if isinstance(val, dbus.Byte):
+        return int(val)
+    if isinstance(val, dbus.ByteArray):
+        return "".join([bytes(x) for x in val])
+    if isinstance(val, (list, tuple)):
+        return [unwrap_dbus_value(x) for x in val]
+    if isinstance(val, (dbus.Dictionary, dict)):
+        return dict([(x, unwrap_dbus_value(y)) for x, y in val.items()])
+    if isinstance(val, dbus.Boolean):
+        return bool(val)
+    return val
+
 def get_default_gateway():
     try:
         with open('/proc/net/route') as f:
@@ -135,7 +180,7 @@ class AdBlockService(dbus.service.Object):
     def get_setting(self, path):
         try:
             item = VeDbusItemImport(self.bus, 'com.victronenergy.settings', path)
-            value = item.get_value()
+            value = unwrap_dbus_value(item.get_value())
             log_info(f"Aktueller Wert für Pfad {path}: {value}")
             return value
         except Exception as e:
@@ -144,10 +189,8 @@ class AdBlockService(dbus.service.Object):
 
     def set_setting(self, path, value):
         try:
-            if isinstance(value, list):
-                value = dbus.Array(value, signature='s')
             item = VeDbusItemImport(self.bus, 'com.victronenergy.settings', path)
-            item.set_value(value)
+            item.set_value(wrap_dbus_value(value))
             time.sleep(0.5)  # Wartezeit erhöhen, um sicherzustellen, dass der Wert gesetzt wird
             new_value = self.get_setting(path)
             if new_value != value:
@@ -161,14 +204,13 @@ class AdBlockService(dbus.service.Object):
         array_paths = [
             "/Settings/AdBlock/BlocklistURLs",
             "/Settings/AdBlock/Whitelist",
-            "/Settings/AdBlock/Blacklist",
-            "/Settings/AdBlock/LastKnownHashes"
+            "/Settings/AdBlock/Blacklist"
         ]
         for path in array_paths:
             value = self.get_setting(path)
             if value is None:
                 try:
-                    self.dbus_service.add_path(path, dbus.Array([], signature='s'), writeable=True)
+                    self.dbus_service.add_path(path, wrap_dbus_value([]), writeable=True)
                     log_info(f"Pfad {path} wurde im D-Bus angelegt")
                 except Exception as e:
                     log_error(f"Fehler beim Anlegen des Pfads {path}: {e}")
@@ -176,7 +218,7 @@ class AdBlockService(dbus.service.Object):
     def set_default_settings(self):
         network_settings = get_network_settings()
         settings = {
-            "/Settings/AdBlock/BlocklistURLs": ["https://example.com/adlist.txt"],
+            "/Settings/AdBlock/BlocklistURLs": ["https://example.com/adlist.txt", "https://example.com/adlist2.txt"],
             "/Settings/AdBlock/UpdateInterval": "weekly",
             "/Settings/AdBlock/DefaultGateway": network_settings["default_gateway"],
             "/Settings/AdBlock/DNSServer": network_settings["dns_server"],

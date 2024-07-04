@@ -30,15 +30,19 @@
     "max": 1
   },
   {
-    "path": "Settings/AdBlock/LastKnownHashes"
+    "path": "Settings/AdBlock/LastKnownHashes",
+    "type": "array"
   },
   {
-    "path": "Settings/AdBlock/BlocklistURLs"
+    "path": "Settings/AdBlock/BlocklistURLs",
+    "type": "array"
   },
   {
-    "path": "Settings/AdBlock/Whitelist"
+    "path": "Settings/AdBlock/Whitelist",
+    "type": "array"
   },
   {
-    "path": "Settings/AdBlock/Blacklist"
+    "path": "Settings/AdBlock/Blacklist",
+    "type": "array"
   }
 ]

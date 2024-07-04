@@ -135,7 +135,7 @@ class AdBlockService(dbus.service.Object):
     def get_setting(self, path):
         try:
             item = VeDbusItemImport(self.bus, 'com.victronenergy.settings', path)
-            value = item.get_value()
+            value = unwrap_dbus_value(item.get_value())
             log_info(f"Aktueller Wert für Pfad {path}: {value}")
             return value
         except Exception as e:
@@ -167,7 +167,7 @@ class AdBlockService(dbus.service.Object):
             value = self.get_setting(path)
             if value is None:
                 try:
-                    self.dbus_service.add_path(path, wrap_dbus_value([]), writeable=True)
+                    self.set_setting(path, [])
                     log_info(f"Pfad {path} wurde im D-Bus angelegt")
                 except Exception as e:
                     log_error(f"Fehler beim Anlegen des Pfads {path}: {e}")
@@ -257,10 +257,10 @@ class AdBlockService(dbus.service.Object):
                     converted_list.extend(whitelist_entries)
                     converted_list.extend(blacklist_entries)
 
-                    with open('/etc/dnsmasq.d/adblock.conf', 'w') as f:
+                    with open(local_file_path, 'w') as f:
                         f.write('\n'.join(converted_list))
 
-                    self.set_setting("/Settings/AdBlock/LastKnownHashes", current_hash)
+                    self.set_setting("/Settings/AdBlock/LastKnownHashes", [current_hash])
                 self.DownloadFinished()
         else:
             log_info("Download is already in progress.")
